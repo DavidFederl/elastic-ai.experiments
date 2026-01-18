@@ -1,3 +1,14 @@
+# Custom
+logs/
+config/
+datasets/
+
+# Python
+__pycache__/
+## pytest
+.pytest_cache/
+.coverage
+
 # Devenv
 .devenv*
 devenv.local.nix

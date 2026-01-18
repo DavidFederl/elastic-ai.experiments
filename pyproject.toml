@@ -6,7 +6,12 @@ authors = [{name = "David P. Federl", email = "david-peter.federl@uni-due.de"}]
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+  "click>=8.3.1",
   "elasticai-creator",
+  "pyyaml>=6.0.3",
+  "schema>=0.7.8",
+  "torch>=2.9.1",
+  "torchvision>=0.24.1",
 ]
 
 [dependency-groups]
@@ -15,11 +20,6 @@ dev = [
     "hatch>=1.14.1",
     "hatch-vcs>=0.5.0",
 ]
-log = [
-    "logdecorator>=2.5",
-    "tqdm>=4.67.1",
-    "tqdm-loggable>=0.2",
-]
 test = [
     "coverage>=7.10.6",
     "pytest>=8.4.2",
@@ -27,11 +27,10 @@ test = [
 ]
 
 [tool.uv]
-default-groups = [ "dev", "log"]
+default-groups = [ "dev"]
 
 [tool.uv.sources]
 elasticai-creator = { git = "https://github.com/es-ude/elastic-ai.creator", tag = "v0.66.0" }
-
 
 [build-system]
 requires = ["hatchling", "hatch-vcs"]
@@ -106,6 +105,6 @@ skip-magic-trailing-comma = false
 line-ending = "auto"
 
 [[tool.mypy.overrides]]
-module = ["torchvision.*", "tqdm_loggable.*", "logdecorator.*"]
+module = ["torchvision.*", "tqdm_loggable.*"]
 ignore_missing_imports = true
 
