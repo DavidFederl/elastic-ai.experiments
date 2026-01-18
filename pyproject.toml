@@ -5,7 +5,9 @@ description = "Run Experiments for delta-compression, based on the elastic-AI.cr
 authors = [{name = "David P. Federl", email = "david-peter.federl@uni-due.de"}]
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+  "elasticai-creator",
+]
 
 [dependency-groups]
 dev = [
@@ -26,6 +28,10 @@ test = [
 
 [tool.uv]
 default-groups = [ "dev", "log"]
+
+[tool.uv.sources]
+elasticai-creator = { git = "https://github.com/es-ude/elastic-ai.creator", tag = "v0.66.0" }
+
 
 [build-system]
 requires = ["hatchling", "hatch-vcs"]
