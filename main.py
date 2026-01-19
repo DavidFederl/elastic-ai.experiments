@@ -6,6 +6,7 @@ import click
 
 from src.config.configuration import Configuration
 from src.nn.data import Dataset, FashionMNIST
+from src.nn.model import Sequential, linear_v1
 
 logger: logging.Logger
 configuration: Configuration
@@ -26,6 +27,7 @@ def main(debug: bool, verbose: bool, log_dir: str, config: str):
     configuration = load_config(logger, config)
 
     dataset: Dataset = prepare_dataset(logger, configuration)
+    model: Sequential = prepare_model(logger, configuration, dataset)
 
 
 def setup_logging(log_dir: str, debug: bool, verbose: bool) -> logging.Logger:
@@ -105,8 +107,38 @@ def prepare_dataset(logger: logging.Logger, configuration: Configuration) -> Dat
         logger.error(f"Unknown dataset type: {configuration.get('dataset.type')}")
         exit(1)
 
-    logger.info(f"Dataset '{dataset.name}' loaded")
     return dataset
+
+
+def prepare_model(
+    logger: logging.Logger, configuration: Configuration, dataset: Dataset
+) -> Sequential:
+    """Initialize a model.
+
+    IMPORTANT: Exit program with exit code '1' if loading confiugration fails.
+               See log for further details!
+    Args:
+        logger (logging.Logger): Logger instance.
+        configuration (Configuration): Configuration instance.
+        dataset (Dataset): Dataset instance.
+
+    Returns:
+        Sequential: Sequential model.
+    """
+    model: Sequential
+    if configuration.get("model.type") == "linear_v1":
+        ...
+        _, model = linear_v1(
+            in_features=dataset.element_shape.numel(),
+            out_features=len(dataset.classes),
+            total_bits=configuration.get("model.fixed-point.total_bits", 16),
+            fraction_bits=configuration.get("model.fixed-point.fraction_bits", 8),
+        )
+    else:
+        logger.error(f"Unknown model type: {configuration.get('model.type')}")
+        exit(1)
+
+    return model
 
 
 if __name__ == "__main__":

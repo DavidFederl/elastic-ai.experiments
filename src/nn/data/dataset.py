@@ -1,6 +1,7 @@
 import logging
 from dataclasses import dataclass
 
+import torch
 from torch.utils.data import DataLoader
 
 logger = logging.getLogger(__name__)
@@ -11,6 +12,8 @@ class Dataset:
     training_loader: DataLoader
     validation_loader: DataLoader
     classes: dict[str, int]
+    element_shape: torch.Size
+    batch_size: int
     name: str
 
     def __init__(self) -> None:
@@ -24,12 +27,14 @@ class Dataset:
             classes_str += "}"
             return classes_str
 
-        logger.info("Dataset: {}".format(self.name))
+        logger.info(f"Dataset: {self.name}")
         logger.debug(print_classes(self.classes))
+        logger.debug(f"Element Size: {self.element_shape}={self.element_shape.numel()}")
+        logger.debug(f"Batch Size: {self.batch_size}")
         logger.debug(
-            "Total: {} samples".format(
-                len(self.training_loader) + len(self.validation_loader)
-            )
+            f"Total: {len(self.training_loader) + len(self.validation_loader)} batches"
         )
-        logger.debug("Training: {} samples".format(len(self.training_loader)))
-        logger.debug("Validation: {} samples".format(len(self.validation_loader)))
+        logger.debug(f"Training: {len(self.training_loader) * self.batch_size} samples")
+        logger.debug(
+            f"Validation: {len(self.validation_loader) * self.batch_size} samples"
+        )

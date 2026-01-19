@@ -12,6 +12,7 @@ dependencies = [
   "schema>=0.7.8",
   "torch>=2.9.1",
   "torchvision>=0.24.1",
+  "cocotb==1.9.2", # required for eai.creator to work properly!
 ]
 
 [dependency-groups]

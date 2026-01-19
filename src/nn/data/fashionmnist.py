@@ -1,8 +1,12 @@
+import logging
+
 import torchvision
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
 
 from .dataset import Dataset
+
+logger = logging.getLogger(__name__)
 
 
 class FashionMNIST(Dataset):
@@ -59,5 +63,7 @@ class FashionMNIST(Dataset):
 
         self.name = "FashionMNIST"
         self.classes = training_set.class_to_idx
+        self.element_shape = training_set[0][0].shape
+        self.batch_size = batch_size
 
         super().__init__()
