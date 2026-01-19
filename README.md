@@ -50,6 +50,9 @@ model:
 
 training:
   epochs: <epochs>
+
+experiment:
+  type: <expression-name>
 ```
 
 **Max Schema:**
@@ -76,4 +79,10 @@ training:
   device: <cpu|cude|mps>
   epochs: <training-epochs>
   store_only_last: <true|false>
+
+experiment:
+  type: <experiment-name>
+  parameter:
+    fixed_point_total_bits: <delta-bitwidth>
+    fixed_point_fraction_bits: <delta-fraction-bits>
 ```

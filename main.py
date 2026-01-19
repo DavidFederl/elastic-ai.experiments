@@ -7,9 +7,11 @@ import click
 from torch import optim
 from torch.nn import CrossEntropyLoss
 
+import src.experiments
 import src.nn.data
 import src.nn.model
 from src.config import Configuration
+from src.experiments import Experiment
 from src.nn.data import Dataset
 from src.nn.model import Sequential
 from src.nn.training import Training, TrainingBuilder
@@ -29,8 +31,8 @@ configuration: Configuration
 @click.option("--verbose/--no-verbose", default=False)
 @click.option("--log-dir", default=f"logs/{int(datetime.now().timestamp() * 1000)}")
 def main(debug: bool, verbose: bool, log_dir: str, config: str):
-    logger = setup_logging(log_dir, debug, verbose)
-    configuration = load_config(logger, config)
+    logger: logging.Logger = setup_logging(log_dir, debug, verbose)
+    configuration: Configuration = load_config(logger, config)
     configuration.save(path=f"{log_dir}/config.yaml")
 
     dataset: Dataset = prepare_dataset(logger, configuration)
@@ -42,6 +44,9 @@ def main(debug: bool, verbose: bool, log_dir: str, config: str):
         epochs=configuration.get("training.epochs", 100),
         store_only_last_model=configuration.get("training.store_only_last", False),
     )
+
+    experiment: Experiment = prepare_experiemt(logger, configuration, log_dir)
+    experiment.run(model=model, dataset=dataset)
 
 
 def setup_logging(log_dir: str, debug: bool, verbose: bool) -> logging.Logger:
@@ -90,7 +95,7 @@ def load_config(logger: logging.Logger, config_path: str) -> Configuration:
         config: Configuration instance.
     """
     config = Configuration(config_path)
-    if config is None:
+    if config.initialized is False:
         exit(1)
     logger.info("Configuration loaded!")
     logger.debug(f"Configuration: {config.get_all()}")
@@ -183,6 +188,38 @@ def prepare_training(
     except ValueError as exc:
         logger.error(f"Error while building Training: {exc}")
         exit(1)
+
+
+def prepare_experiemt(
+    logger: logging.Logger, configuration: Configuration, log_dir: str
+) -> Experiment:
+    """Instantiate Experiment.
+
+    IMPORTANT: Exit program with exit code '1' if loading confiugration fails.
+               See log for further details!
+
+    Args:
+        logger (logging.Logger): Logger instance.
+        configuration (Configuration): Configuration instance.
+        log_dir (str): Log directory.
+
+    Returns:
+        Dataset: Dataset instance.
+    """
+    experiment_name = configuration.get("experiment.type", "")
+    if experiment_name == "":
+        logger.error("Experiment not specified!")
+        exit(1)
+
+    experiment_params = configuration.get("experiment.parameter", {})
+
+    experiment = getattr(src.experiments, experiment_name, None)
+
+    if experiment is None or not isinstance(experiment, type(Experiment)):
+        logger.error(f"Unknown Experiment type: {experiment_name}")
+        exit(1)
+
+    return experiment(log_dir=log_dir, config=configuration)
 
 
 if __name__ == "__main__":
