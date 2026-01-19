@@ -1,4 +1,5 @@
 import pytest
+import yaml
 
 from src.config.configuration import Configuration
 
@@ -55,7 +56,7 @@ def test_configuration_handles_invalid_yaml(tmp_path):
     config = Configuration(str(config_path))
 
     with pytest.raises(ValueError, match="Configuration not loaded"):
-        config.all()
+        config.get_all()
 
 
 def test_configuration_handles_schema_error(tmp_path):
@@ -69,3 +70,44 @@ def test_configuration_handles_schema_error(tmp_path):
 
     with pytest.raises(ValueError, match="Configuration not loaded"):
         config.get("dataset.type")
+
+
+def test_configuration_save_writes_yaml(tmp_path):
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(
+        "dataset:\n"
+        "  type: fashionmnist\n"
+        "model:\n"
+        "  type: linear_v1\n"
+        "training:\n"
+        "  epochs: 1\n",
+        encoding="utf-8",
+    )
+
+    config = Configuration(str(config_path))
+
+    output_path = tmp_path / "saved.yaml"
+    config.save(str(output_path))
+
+    saved = yaml.safe_load(output_path.read_text(encoding="utf-8"))
+    assert saved == config.get_all()
+
+
+def test_configuration_save_defaults_to_config_path(tmp_path):
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(
+        "dataset:\n"
+        "  type: fashionmnist\n"
+        "model:\n"
+        "  type: linear_v1\n"
+        "training:\n"
+        "  epochs: 1\n",
+        encoding="utf-8",
+    )
+
+    config = Configuration(str(config_path))
+
+    config.save(None)
+
+    saved = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    assert saved == config.get_all()

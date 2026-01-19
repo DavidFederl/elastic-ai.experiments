@@ -1,6 +1,8 @@
 # Custom
 logs/
 config/
+!src/config/
+!test/uniot/config/
 datasets/
 
 # Python

@@ -75,7 +75,7 @@ class Configuration:
 
         return value
 
-    def all(self) -> dict:
+    def get_all(self) -> dict:
         """Get the entire configuration.
 
         Raises:
@@ -89,3 +89,34 @@ class Configuration:
             raise ValueError("Configuration not loaded.")
 
         return self.config
+
+    def save(self, path: str | None) -> None:
+        """Writes config as YAML to given Path.
+
+        Args:
+            path (str): Path to write configuration to.
+
+        Raises:
+            FILE_NOT_FOUND: If the configuration file is not found.
+            YAML_ERROR: If the configuration file is not valid YAML.
+            SCHEMA_ERROR: If the configuration file is not valid according to the schema.
+
+        Returns:
+            None
+        """
+        if path is None:
+            path = self.config_path
+
+        try:
+            with open(path, "w") as f:
+                yaml.dump(self.config, f, default_flow_style=False)
+        except FileNotFoundError:
+            logger.error(f"Configuration file {self.config_path} not found.")
+        except yaml.YAMLError as exc:
+            logger.error(
+                f"Error while parsing configuration file {self.config_path}: {exc}"
+            )
+        except SchemaError as exc:
+            logger.error(
+                f"Error while validating configuration file {self.config_path}: {exc}"
+            )

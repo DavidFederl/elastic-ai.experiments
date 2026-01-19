@@ -38,10 +38,6 @@ class Training:
         self.device = device
         self.log_dir = log_dir
         self.tb_writer = SummaryWriter(log_dir=f"{log_dir}/tensorboard")
-        with open(f"{log_dir}/info.txt", "a") as f:
-            f.write(f"Model: {model}\n\n")
-            f.write(f"Dataset: {dataset.name}\n")
-            f.write(f"Classes: {dataset.classes}\n")
 
     def _train_epoch(self, epoch: int) -> Metrics:
         training_metrics = Metrics(

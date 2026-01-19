@@ -9,7 +9,7 @@ from torch.nn import CrossEntropyLoss
 
 import src.nn.data
 import src.nn.model
-from src.config.configuration import Configuration
+from src.config import Configuration
 from src.nn.data import Dataset
 from src.nn.model import Sequential
 from src.nn.training import Training, TrainingBuilder
@@ -31,6 +31,7 @@ configuration: Configuration
 def main(debug: bool, verbose: bool, log_dir: str, config: str):
     logger = setup_logging(log_dir, debug, verbose)
     configuration = load_config(logger, config)
+    configuration.save(path=f"{log_dir}/config.yaml")
 
     dataset: Dataset = prepare_dataset(logger, configuration)
     model: Sequential = prepare_model(logger, configuration, dataset)
@@ -92,7 +93,7 @@ def load_config(logger: logging.Logger, config_path: str) -> Configuration:
     if config is None:
         exit(1)
     logger.info("Configuration loaded!")
-    logger.debug(f"Configuration: {config.all()}")
+    logger.debug(f"Configuration: {config.get_all()}")
     return config
 
 
