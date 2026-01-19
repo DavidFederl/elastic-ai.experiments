@@ -3,10 +3,13 @@ from datetime import datetime
 from os import makedirs
 
 import click
+from torch import optim
+from torch.nn import CrossEntropyLoss
 
 from src.config.configuration import Configuration
 from src.nn.data import Dataset, FashionMNIST
 from src.nn.model import Sequential, linear_v1
+from src.nn.training import Training, TrainingBuilder
 
 logger: logging.Logger
 configuration: Configuration
@@ -28,6 +31,13 @@ def main(debug: bool, verbose: bool, log_dir: str, config: str):
 
     dataset: Dataset = prepare_dataset(logger, configuration)
     model: Sequential = prepare_model(logger, configuration, dataset)
+    training: Training = prepare_training(
+        logger, configuration, log_dir, dataset, model
+    )
+    training.train(
+        epochs=configuration.get("training.epochs", 100),
+        store_only_last_model=configuration.get("training.store_only_last", False),
+    )
 
 
 def setup_logging(log_dir: str, debug: bool, verbose: bool) -> logging.Logger:
@@ -139,6 +149,30 @@ def prepare_model(
         exit(1)
 
     return model
+
+
+def prepare_training(
+    logger: logging.Logger,
+    configuration: Configuration,
+    log_dir: str,
+    dataset: Dataset,
+    model: Sequential,
+) -> Training:
+    builder = TrainingBuilder().model(model).dataset(dataset).log_dir(log_dir)
+    builder.device(configuration.get("training.device", "cpu"))
+    match configuration.get("training.loss", ""):
+        case "cse":
+            builder.loss_fn(CrossEntropyLoss())
+    match configuration.get("training.optimizer", ""):
+        case "adam":
+            builder.optimizer(optim.Adam(model.parameters()))
+
+    try:
+        training = builder.build()
+        return training
+    except ValueError as exc:
+        logger.error(f"Error while building Training: {exc}")
+        exit(1)
 
 
 if __name__ == "__main__":

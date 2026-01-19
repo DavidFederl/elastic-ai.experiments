@@ -2,6 +2,7 @@ import logging
 
 import torchvision
 import torchvision.transforms as transforms
+from torch import flatten
 from torch.utils.data import DataLoader
 
 from .dataset import Dataset
@@ -34,6 +35,7 @@ class FashionMNIST(Dataset):
         transformation_steps: list = [
             transforms.ToTensor(),
             transforms.Normalize((0.5,), (0.5,)),
+            transforms.Lambda(lambda x: flatten(x)),
         ]
         if transform is not None:
             transformation_steps.extend(list(transform.transforms))

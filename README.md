@@ -44,6 +44,12 @@ experiment to perform.
 ```yaml
 dataset:
   type: <dataset-name>
+
+model:
+  type: <model-name>
+
+training:
+  epochs: <epochs>
 ```
 
 **Max Schema:**
@@ -55,5 +61,18 @@ dataset:
 dataset:
   type: <datset-name>
   storage_path: <local-path>
-  batch_size: <512>
+  batch_size: <batch-size>
+
+model:
+  type: <model-name>
+  fixed-point:
+    total: <bitwidth>
+    fraction: <fraction-bits>
+
+training:
+  loss: <cse|mse|...>
+  optimizer: <adam|sgd|...>
+  device: <cpu|cude|mps>
+  epochs: <training-epochs>
+  store_only_last: <true|false>
 ```

@@ -1,3 +1,4 @@
+import torch
 import torchvision.transforms as transforms
 
 from src.nn.data import fashionmnist
@@ -10,6 +11,9 @@ class _DummyDataset:
         self.transform = transform
         self.download = download
         self.class_to_idx = {"shirt": 0, "shoe": 1}
+
+    def __getitem__(self, index):
+        return torch.zeros(1, 28, 28), 0
 
 
 class _DummyLoader:
@@ -56,9 +60,10 @@ def test_fashionmnist_builds_loaders_and_metadata(monkeypatch):
     assert created_loaders[1].batch_size == 32
 
     transform_steps = created_datasets[0].transform.transforms
-    assert len(transform_steps) == 2
+    assert len(transform_steps) == 3
     assert isinstance(transform_steps[0], transforms.ToTensor)
     assert isinstance(transform_steps[1], transforms.Normalize)
+    assert isinstance(transform_steps[2], transforms.Lambda)
 
 
 def test_fashionmnist_appends_custom_transform(monkeypatch):
@@ -79,7 +84,8 @@ def test_fashionmnist_appends_custom_transform(monkeypatch):
     fashionmnist.FashionMNIST(transform=extra_transform)
 
     transform_steps = created_datasets[0].transform.transforms
-    assert len(transform_steps) == 3
+    assert len(transform_steps) == 4
     assert isinstance(transform_steps[0], transforms.ToTensor)
     assert isinstance(transform_steps[1], transforms.Normalize)
-    assert transform_steps[2] is extra_transform.transforms[0]
+    assert isinstance(transform_steps[2], transforms.Lambda)
+    assert transform_steps[3] is extra_transform.transforms[0]

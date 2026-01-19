@@ -13,6 +13,9 @@ dependencies = [
   "torch>=2.9.1",
   "torchvision>=0.24.1",
   "cocotb==1.9.2", # required for eai.creator to work properly!
+  "tqdm-loggable>=0.2",
+  "tqdm>=4.67.1",
+  "tensorboard>=2.20.0",
 ]
 
 [dependency-groups]
@@ -108,4 +111,7 @@ line-ending = "auto"
 [[tool.mypy.overrides]]
 module = ["torchvision.*", "tqdm_loggable.*"]
 ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+filterwarnings = ["ignore::UserWarning:elasticai.creator.testing.cocotb_runner"]
 
