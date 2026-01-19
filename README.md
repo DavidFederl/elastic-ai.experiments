@@ -60,14 +60,15 @@ training:
 ```yaml
 dataset:
   type: <datset-name>
-  storage_path: <local-path>
-  batch_size: <batch-size>
+  parameter:
+    storage_path: <local-path>
+    batch_size: <batch-size>
 
 model:
   type: <model-name>
-  fixed-point:
-    total: <bitwidth>
-    fraction: <fraction-bits>
+  parameter:
+    fixed_point_total_bits: <bitwidth>
+    fixed_point_fraction_bits: <fraction-bits>
 
 training:
   loss: <cse|mse|...>
