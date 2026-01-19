@@ -7,12 +7,17 @@ def get_config_schema() -> Schema:
         {
             "dataset": {
                 "type": str,
-                Optional("storage_path"): str,
-                Optional("batch_size"): int,
+                Optional("parameter"): {
+                    Optional("storage_path"): str,
+                    Optional("batch_size"): int,
+                },
             },
             "model": {
                 "type": And(str, lambda t: t in ["linear_v1"]),
-                Optional("fixed-point"): {"total": int, "fraction": int},
+                Optional("parameter"): {
+                    Optional("fixed_point_total_bits"): int,
+                    Optional("fixed_point_fraction_bits"): int,
+                },
             },
             "training": {
                 Optional("loss"): str,

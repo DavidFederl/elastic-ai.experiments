@@ -1,6 +1,7 @@
 import logging
 from datetime import datetime
 from os import makedirs
+from types import FunctionType
 
 import click
 from torch import optim
@@ -114,15 +115,13 @@ def prepare_dataset(logger: logging.Logger, configuration: Configuration) -> Dat
         exit(1)
 
     dataset = getattr(src.nn.data, dataset_name, None)
+    dataset_params = configuration.get("dataset.parameter", {})
 
-    if dataset is None:
+    if dataset is None or not isinstance(dataset, type(Dataset)):
         logger.error(f"Unknown dataset type: {dataset_name}")
         exit(1)
 
-    return dataset(
-        storage_path=configuration.get("dataset.storage_path", "data"),
-        batch_size=configuration.get("dataset.batch_size", 1),
-    )
+    return dataset(**dataset_params)
 
 
 def prepare_model(
@@ -145,18 +144,20 @@ def prepare_model(
         logger.error("Model not specified!")
         exit(1)
 
-    model = getattr(src.nn.model, model_name, None)
+    model_builder = getattr(src.nn.model, model_name, None)
+    model_params = configuration.get("model.parameter", {})
 
-    if model is None:
+    if model_builder is None or not isinstance(model_builder, FunctionType):
         logger.error(f"Unknown model type: {model_name}")
         exit(1)
 
-    return model(
+    _, model = model_builder(
         in_features=dataset.element_shape.numel(),
         out_features=len(dataset.classes),
-        total_bits=configuration.get("model.fixed-point.total_bits", 16),
-        fraction_bits=configuration.get("model.fixed-point.fraction_bits", 8),
+        **model_params,
     )
+
+    return model
 
 
 def prepare_training(
