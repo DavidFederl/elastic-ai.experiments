@@ -12,7 +12,6 @@ dependencies = [
   "schema>=0.7.8",
   "torch>=2.9.1",
   "torchvision>=0.24.1",
-  "cocotb==1.9.2", # required for eai.creator to work properly!
   "tqdm-loggable>=0.2",
   "tqdm>=4.67.1",
   "tensorboard>=2.20.0",
@@ -34,7 +33,7 @@ test = [
 default-groups = [ "dev"]
 
 [tool.uv.sources]
-elasticai-creator = { git = "https://github.com/es-ude/elastic-ai.creator", tag = "v0.66.0" }
+elasticai-creator = { git = "https://github.com/es-ude/elastic-ai.creator", branch = "main" }
 
 [build-system]
 requires = ["hatchling", "hatch-vcs"]
