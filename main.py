@@ -6,9 +6,11 @@ import click
 from torch import optim
 from torch.nn import CrossEntropyLoss
 
+import src.nn.data
+import src.nn.model
 from src.config.configuration import Configuration
-from src.nn.data import Dataset, FashionMNIST
-from src.nn.model import Sequential, linear_v1
+from src.nn.data import Dataset
+from src.nn.model import Sequential
 from src.nn.training import Training, TrainingBuilder
 
 logger: logging.Logger
@@ -106,18 +108,21 @@ def prepare_dataset(logger: logging.Logger, configuration: Configuration) -> Dat
     Returns:
         Dataset: Dataset instance.
     """
-    dataset: Dataset
-    if configuration.get("dataset.type") == "fashionmnist":
-        dataset = FashionMNIST(
-            storage_path=configuration.get("dataset.storage_path", "data"),
-            transform=None,
-            batch_size=configuration.get("dataset.batch_size", 512),
-        )
-    else:
-        logger.error(f"Unknown dataset type: {configuration.get('dataset.type')}")
+    dataset_name = configuration.get("dataset.type", "")
+    if dataset_name == "":
+        logger.error("Dataset type not specified!")
         exit(1)
 
-    return dataset
+    dataset = getattr(src.nn.data, dataset_name, None)
+
+    if dataset is None:
+        logger.error(f"Unknown dataset type: {dataset_name}")
+        exit(1)
+
+    return dataset(
+        storage_path=configuration.get("dataset.storage_path", "data"),
+        batch_size=configuration.get("dataset.batch_size", 1),
+    )
 
 
 def prepare_model(
@@ -135,20 +140,23 @@ def prepare_model(
     Returns:
         Sequential: Sequential model.
     """
-    model: Sequential
-    if configuration.get("model.type") == "linear_v1":
-        ...
-        _, model = linear_v1(
-            in_features=dataset.element_shape.numel(),
-            out_features=len(dataset.classes),
-            total_bits=configuration.get("model.fixed-point.total_bits", 16),
-            fraction_bits=configuration.get("model.fixed-point.fraction_bits", 8),
-        )
-    else:
-        logger.error(f"Unknown model type: {configuration.get('model.type')}")
+    model_name = configuration.get("model.type", "")
+    if model_name == "":
+        logger.error("Model not specified!")
         exit(1)
 
-    return model
+    model = getattr(src.nn.model, model_name, None)
+
+    if model is None:
+        logger.error(f"Unknown model type: {model_name}")
+        exit(1)
+
+    return model(
+        in_features=dataset.element_shape.numel(),
+        out_features=len(dataset.classes),
+        total_bits=configuration.get("model.fixed-point.total_bits", 16),
+        fraction_bits=configuration.get("model.fixed-point.fraction_bits", 8),
+    )
 
 
 def prepare_training(
