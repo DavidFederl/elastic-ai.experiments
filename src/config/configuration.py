@@ -16,7 +16,7 @@ class Configuration:
     """Configuration for the experiment.
 
     Args:
-        config_path (str): Path to the configuration file.
+        config_path (pathlib.Path): Path to the configuration file.
 
     Raises:
         FILE_NOT_FOUND: If the configuration file is not found.
@@ -88,7 +88,7 @@ class Configuration:
         """Writes config as YAML to given Path.
 
         Args:
-            path (str): Path to write configuration to.
+            path (pathlib.Path): Path to write configuration to.
 
         Raises:
             FILE_NOT_FOUND: If the configuration file is not found.
@@ -99,7 +99,7 @@ class Configuration:
             None
         """
         try:
-            with open(self.config_file, "w") as cf:
+            with open(path, "w") as cf:
                 yaml.dump(self.configuration, cf, default_flow_style=False)
         except FileNotFoundError as exc:
             logger.error(f"File not found: {exc}")
