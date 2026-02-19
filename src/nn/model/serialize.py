@@ -1,12 +1,13 @@
 import json
 import logging
+from pathlib import Path
 
 import torch
 
 logger = logging.getLogger(__name__)
 
 
-def load_from_json(path: str) -> dict:
+def load_from_json(path: Path) -> dict:
     def _dtype_from_string(dtype_name: str) -> torch.dtype:
         normalized = dtype_name.replace("torch.", "", 1)
         dtype = getattr(torch, normalized, None)
@@ -33,7 +34,7 @@ def load_from_json(path: str) -> dict:
     return state_dict
 
 
-def save_as_json(state_dict: dict, path: str) -> None:
+def save_as_json(state_dict: dict, path: Path) -> None:
     def _state_dict_to_json(state_dict: dict) -> dict:
         json_dict: dict = {}
 

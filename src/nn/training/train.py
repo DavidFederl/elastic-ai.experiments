@@ -1,6 +1,6 @@
 import logging
-from datetime import datetime
 from os import makedirs
+from pathlib import Path
 from typing import Self
 
 from torch import no_grad, optim, save
@@ -25,11 +25,11 @@ class Training:
         loss_fn: _Loss,
         optimiezer: optim.Optimizer,
         device: str,
-        log_dir: str,
+        log_dir: Path,
     ):
         makedirs(log_dir, exist_ok=True)
-        makedirs(f"{log_dir}/models", exist_ok=True)
-        makedirs(f"{log_dir}/tensorboard", exist_ok=True)
+        makedirs(log_dir.joinpath("models"), exist_ok=True)
+        makedirs(log_dir.joinpath("tensorboard"), exist_ok=True)
 
         self.model = model
         self.dataset = dataset
@@ -37,7 +37,7 @@ class Training:
         self.optimizer = optimiezer
         self.device = device
         self.log_dir = log_dir
-        self.tb_writer = SummaryWriter(log_dir=f"{log_dir}/tensorboard")
+        self.tb_writer = SummaryWriter(log_dir=log_dir.joinpath("tensorboard"))
 
     def _train_epoch(self, epoch: int) -> Metrics:
         training_metrics = Metrics(
@@ -154,7 +154,7 @@ class TrainingBuilder:
         self._loss_fn: _Loss | None = None
         self._optimizer: optim.Optimizer | None = None
         self._device: str | None = None
-        self._log_dir: str | None = None
+        self._log_dir: Path | None = None
 
     def model(self, model: Sequential) -> Self:
         self._model = model
@@ -181,7 +181,7 @@ class TrainingBuilder:
         logger.debug(f"add device: {device}")
         return self
 
-    def log_dir(self, log_dir: str) -> Self:
+    def log_dir(self, log_dir: Path) -> Self:
         self._log_dir = log_dir
         logger.debug(f"add tensorboard_log_dir: {log_dir}")
         return self
@@ -204,7 +204,7 @@ class TrainingBuilder:
         loss_fn = self._loss_fn or CrossEntropyLoss()
         optimizer = self._optimizer or optim.Adam(self._model.parameters())
         device = self._device or "cpu"
-        log_dir = self._log_dir or f"logs/{int(datetime.now().timestamp() * 1000)}"
+        log_dir = self._log_dir or Path("logs/{int(datetime.now().timestamp() * 1000)}")
 
         logger.debug(
             f"build Training: {self._model=}, {self._dataset=}, {loss_fn=}, {optimizer=}, {device=}, {log_dir=}"

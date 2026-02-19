@@ -1,4 +1,5 @@
 import logging
+from pathlib import Path
 from typing import TypeVar
 
 import yaml
@@ -26,28 +27,21 @@ class Configuration:
         None
     """
 
-    def __init__(self, config_path: str):
-        self.config_path = config_path
-        self._load()
-
-    def _load(self) -> None:
+    def __init__(self, config: Path):
+        self.config_file = config
         try:
-            with open(self.config_path, "r") as f:
-                self.config = yaml.safe_load(f)
-            get_config_schema().validate(self.config)
-        except FileNotFoundError:
-            logger.error(f"Configuration file {self.config_path} not found.")
-            self.config = None
+            with open(config, "r") as cf:
+                self.configuration: dict | None = yaml.safe_load(cf)
+                get_config_schema().validate(self.configuration)
+        except FileNotFoundError as exc:
+            logger.error(f"File not found: {exc}")
+            self.configuration = None
         except yaml.YAMLError as exc:
-            logger.error(
-                f"Error while parsing configuration file {self.config_path}: {exc}"
-            )
-            self.config = None
+            logger.error(f"Error while parsing configuration file: {exc}")
+            self.configuration = None
         except SchemaError as exc:
-            logger.error(
-                f"Error while validating configuration file {self.config_path}: {exc}"
-            )
-            self.config = None
+            logger.error(f"Error while validating configuration file: {exc}")
+            self.configuration = None
 
     def get(self, key: str, default: T = None) -> T:
         """Get a value from the configuration.
@@ -62,11 +56,11 @@ class Configuration:
         Returns:
             value: Value of the key.
         """
-        if self.config is None:
+        if self.configuration is None:
             raise ValueError("Configuration not loaded.")
 
         keys = key.split(".")
-        value = self.config
+        value = self.configuration
         for key in keys:
             if isinstance(value, dict) and key in value:
                 value = value[key]
@@ -85,12 +79,12 @@ class Configuration:
             config: The entire configuration.
         """
 
-        if self.config is None:
+        if self.configuration is None:
             raise ValueError("Configuration not loaded.")
 
-        return self.config
+        return self.configuration
 
-    def save(self, path: str | None) -> None:
+    def save(self, path: Path) -> None:
         """Writes config as YAML to given Path.
 
         Args:
@@ -98,25 +92,18 @@ class Configuration:
 
         Raises:
             FILE_NOT_FOUND: If the configuration file is not found.
+            PERMISSION_DENIED: if the configuration can't be written.
             YAML_ERROR: If the configuration file is not valid YAML.
-            SCHEMA_ERROR: If the configuration file is not valid according to the schema.
 
         Returns:
             None
         """
-        if path is None:
-            path = self.config_path
-
         try:
-            with open(path, "w") as f:
-                yaml.dump(self.config, f, default_flow_style=False)
-        except FileNotFoundError:
-            logger.error(f"Configuration file {self.config_path} not found.")
+            with open(self.config_file, "w") as cf:
+                yaml.dump(self.configuration, cf, default_flow_style=False)
+        except FileNotFoundError as exc:
+            logger.error(f"File not found: {exc}")
+        except PermissionError as exc:
+            logger.error(f"Permission denied: {exc}")
         except yaml.YAMLError as exc:
-            logger.error(
-                f"Error while parsing configuration file {self.config_path}: {exc}"
-            )
-        except SchemaError as exc:
-            logger.error(
-                f"Error while validating configuration file {self.config_path}: {exc}"
-            )
+            logger.error(f"Error while parsing configuration file: {exc}")

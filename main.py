@@ -1,9 +1,11 @@
 import logging
 from datetime import datetime
 from os import makedirs
+from pathlib import Path
 from types import FunctionType
+from typing import Annotated
 
-import click
+import typer
 from torch import optim
 from torch.nn import CrossEntropyLoss
 
@@ -20,20 +22,26 @@ logger: logging.Logger
 configuration: Configuration
 
 
-@click.command()
-@click.option(
-    "--config",
-    required=True,
-    type=click.Path(exists=True),
-    help="Configuration file defining the experiment.",
-)
-@click.option("--debug/--no-debug", default=False)
-@click.option("--verbose/--no-verbose", default=False)
-@click.option("--log-dir", default=f"logs/{int(datetime.now().timestamp() * 1000)}")
-def main(debug: bool, verbose: bool, log_dir: str, config: str):
+def main(
+    config: Annotated[
+        Path,
+        typer.Option(
+            help="Configuration file defining the experiment.",
+            exists=True,
+            file_okay=True,
+            writable=True,
+            readable=True,
+        ),
+    ],
+    log_dir: Annotated[Path, typer.Option(help="Log directory.")] = Path(
+        f"logs/{int(datetime.now().timestamp() * 1000)}"
+    ),
+    debug: Annotated[bool, typer.Option(help="Enable debug mode.")] = False,
+    verbose: Annotated[bool, typer.Option(help="Enable verbose mode.")] = False,
+):
     logger: logging.Logger = setup_logging(log_dir, debug, verbose)
     configuration: Configuration = load_config(logger, config)
-    configuration.save(path=f"{log_dir}/config.yaml")
+    configuration.save(log_dir.joinpath("config.yaml"))
 
     dataset: Dataset = prepare_dataset(logger, configuration)
     model: Sequential = prepare_model(logger, configuration, dataset)
@@ -49,7 +57,7 @@ def main(debug: bool, verbose: bool, log_dir: str, config: str):
     experiment.run(model=model, dataset=dataset)
 
 
-def setup_logging(log_dir: str, debug: bool, verbose: bool) -> logging.Logger:
+def setup_logging(log_dir: Path, debug: bool, verbose: bool) -> logging.Logger:
     """Setup Logging Facility.
 
     Args:
@@ -73,7 +81,7 @@ def setup_logging(log_dir: str, debug: bool, verbose: bool) -> logging.Logger:
 
     logging.basicConfig(
         level=set_log_level(debug, verbose),
-        filename=f"{log_dir}/experiment.log",
+        filename=log_dir.joinpath("experiment.log"),
         filemode="a",
         format="%(asctime)s %(levelname)-8s %(filename)s:%(lineno)s %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
@@ -81,7 +89,7 @@ def setup_logging(log_dir: str, debug: bool, verbose: bool) -> logging.Logger:
     return logging.getLogger(__name__)
 
 
-def load_config(logger: logging.Logger, config_path: str) -> Configuration:
+def load_config(logger: logging.Logger, config_file: Path) -> Configuration:
     """Load the configuration.
 
     IMPORTANT: Exit program with exit code '1' if loading confiugration fails.
@@ -94,8 +102,9 @@ def load_config(logger: logging.Logger, config_path: str) -> Configuration:
     Returns:
         config: Configuration instance.
     """
-    config = Configuration(config_path)
-    if config.initialized is False:
+    config = Configuration(config_file)
+    if config.configuration is None:
+        logger.error("Configuration not loaded!")
         exit(1)
     logger.info("Configuration loaded!")
     logger.debug(f"Configuration: {config.get_all()}")
@@ -169,7 +178,7 @@ def prepare_model(
 def prepare_training(
     logger: logging.Logger,
     configuration: Configuration,
-    log_dir: str,
+    log_dir: Path,
     dataset: Dataset,
     model: Sequential,
 ) -> Training:
@@ -191,7 +200,7 @@ def prepare_training(
 
 
 def prepare_experiemt(
-    logger: logging.Logger, configuration: Configuration, log_dir: str
+    logger: logging.Logger, configuration: Configuration, log_dir: Path
 ) -> Experiment:
     """Instantiate Experiment.
 
@@ -219,8 +228,8 @@ def prepare_experiemt(
         logger.error(f"Unknown Experiment type: {experiment_name}")
         exit(1)
 
-    return experiment(log_dir=log_dir, config=configuration)
+    return experiment(log_dir=log_dir.joinpath("experiment"), config=configuration)
 
 
 if __name__ == "__main__":
-    main()
+    typer.run(main)

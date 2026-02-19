@@ -6,7 +6,6 @@ authors = [{name = "David P. Federl", email = "david-peter.federl@uni-due.de"}]
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-  "click>=8.3.1",
   "elasticai-creator",
   "pyyaml>=6.0.3",
   "schema>=0.7.8",
@@ -15,6 +14,7 @@ dependencies = [
   "tqdm-loggable>=0.2",
   "tqdm>=4.67.1",
   "tensorboard>=2.20.0",
+  "typer>=0.24.0",
 ]
 
 [dependency-groups]

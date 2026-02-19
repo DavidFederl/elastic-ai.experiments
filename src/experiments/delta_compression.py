@@ -1,5 +1,6 @@
 import copy
 import logging
+from pathlib import Path
 
 from src.config import Configuration
 from src.nn.data import Dataset
@@ -14,7 +15,7 @@ logger = logging.getLogger(__name__)
 class DeltaExperiment01(Experiment):
     def __init__(
         self,
-        log_dir: str,
+        log_dir: Path,
         config: Configuration,
     ) -> None:
         model_total_bits = config.get("model.parameter.fixed_point_total_bits", 16)
@@ -39,15 +40,21 @@ class DeltaExperiment01(Experiment):
         logger.info("START Experiment")
 
         model_copy: Sequential = copy.deepcopy(model)
-        save_as_json(model_copy.state_dict(), f"{self.log_dir}/model_original.json")
+        save_as_json(
+            model_copy.state_dict(), self.log_dir.joinpath("model_original.json")
+        )
         logger.debug(f"Model Copy: {model_copy}")
 
         model_copy = self.delta_compression.compress(model_copy)
-        save_as_json(model_copy.state_dict(), f"{self.log_dir}/model_compressed.json")
+        save_as_json(
+            model_copy.state_dict(), self.log_dir.joinpath("model_compressed.json")
+        )
         logger.debug(f"Model Compressed: {model_copy}")
 
         model_copy = self.delta_compression.inflate(model_copy)
-        save_as_json(model_copy.state_dict(), f"{self.log_dir}/model_inflated.json")
+        save_as_json(
+            model_copy.state_dict(), self.log_dir.joinpath("model_inflated.json")
+        )
         logger.debug(f"Model Inflated: {model_copy}")
 
         logger.info("END Experiment")

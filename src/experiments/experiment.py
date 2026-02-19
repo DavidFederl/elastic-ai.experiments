@@ -1,4 +1,5 @@
 import abc
+from pathlib import Path
 
 from src.config import Configuration
 from src.nn.data import Dataset
@@ -10,7 +11,7 @@ class Experiment(metaclass=abc.ABCMeta):
     def __subclasshook__(cls, subclass):
         return hasattr(subclass, "run") and callable(subclass.run)
 
-    def __init__(self, log_dir: str, config: Configuration) -> None: ...
+    def __init__(self, log_dir: Path, config: Configuration) -> None: ...
 
     @abc.abstractmethod
     def run(self, model: Sequential, dataset: Dataset) -> None: ...
