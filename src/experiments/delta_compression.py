@@ -1,5 +1,6 @@
 import copy
 import logging
+from datetime import datetime, timezone
 from pathlib import Path
 
 from src.config import Configuration
@@ -18,6 +19,11 @@ class DeltaExperiment01(Experiment):
         log_dir: Path,
         config: Configuration,
     ) -> None:
+        self.log_dir = log_dir.joinpath(
+            "experiment", f"{datetime.now(timezone.utc).isoformat()}"
+        )
+        self.log_dir.mkdir(exist_ok=True, parents=True)
+
         model_total_bits = config.get("model.parameter.fixed_point_total_bits", 16)
         model_frac_bits = config.get("model.parameter.fixed_point_fraction_bits", 8)
         compress_total_bits = config.get(
@@ -31,7 +37,7 @@ class DeltaExperiment01(Experiment):
             compress_params=FxpParams(compress_total_bits, compress_frac_bits),
             inflate_params=FxpParams(model_total_bits, model_frac_bits),
         )
-        self.log_dir = log_dir
+
         logger.info("Experiment: Delta01")
         logger.debug(f"Compress Params: {compress_total_bits=}; {compress_frac_bits=}")
         logger.debug(f"Inflate Params: {model_total_bits=}; {model_frac_bits=}")
