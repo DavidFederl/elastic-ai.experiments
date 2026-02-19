@@ -1,9 +1,8 @@
 import logging
-from os import makedirs
 from pathlib import Path
 from typing import Self
 
-from torch import no_grad, optim, save
+from torch import load, no_grad, optim, save
 from torch.nn import CrossEntropyLoss
 from torch.nn.modules.loss import _Loss
 from torch.utils.tensorboard import SummaryWriter
@@ -27,9 +26,10 @@ class Training:
         device: str,
         log_dir: Path,
     ):
-        makedirs(log_dir, exist_ok=True)
-        makedirs(log_dir.joinpath("models"), exist_ok=True)
-        makedirs(log_dir.joinpath("tensorboard"), exist_ok=True)
+        log_dir.mkdir(exist_ok=True, parents=True)
+        log_dir.joinpath("models").mkdir(exist_ok=True)
+        log_dir.joinpath("models", "snapshots").mkdir(exist_ok=True)
+        log_dir.joinpath("tensorboard").mkdir(exist_ok=True)
 
         self.model = model
         self.dataset = dataset
@@ -38,6 +38,36 @@ class Training:
         self.device = device
         self.log_dir = log_dir
         self.tb_writer = SummaryWriter(log_dir=log_dir.joinpath("tensorboard"))
+
+    def _check_previous_state(self, epochs: int) -> int:
+        model_dir: Path = self.log_dir.joinpath("models")
+        snapshot_dir: Path = model_dir.joinpath("snapshots")
+
+        first_epoch: int
+
+        logger.debug(f"Checking previous state: {model_dir=}, {snapshot_dir=}")
+
+        if not model_dir.is_dir():
+            logger.debug("Checking previous state: No model dir!")
+            first_epoch = 0
+        elif model_dir.joinpath("model.pth").exists():
+            logger.debug("Checking previous state: model.pth exists!")
+            first_epoch = epochs
+        else:
+            logger.debug("Checking previous state: Checking snapshots!")
+            snapshots: list[Path] = [
+                file for file in snapshot_dir.iterdir() if file.is_file()
+            ]
+            if not snapshots:
+                logger.debug("Checking previous state: No snapshots!")
+                first_epoch = 0
+            else:
+                logger.debug("Checking previous state: Found snapshots!")
+                snapshot_epochs: list[int] = [
+                    int(file.name.split("_")[-1].split(".")[0]) for file in snapshots
+                ]
+                first_epoch = max(snapshot_epochs) + 1
+        return first_epoch
 
     def _train_epoch(self, epoch: int) -> Metrics:
         training_metrics = Metrics(
@@ -113,36 +143,70 @@ class Training:
         metric_writer.write(validation_metrics, False, f"validation_epoch{epoch}.json")
         logger.info("Logging Metrics Done")
 
-    def _save_model(self, store_only_last_model: bool, epoch: int) -> None:
-        model_path: str
+    def _save_snapshot(self, store_only_last_model: bool, epoch: int) -> None:
         if store_only_last_model:
-            model_path = f"{self.log_dir}/models/model.pth"
-        else:
-            model_path = f"{self.log_dir}/models/{epoch}.pth"
+            for file in self.log_dir.joinpath("models", "snapshots").iterdir():
+                if file.is_file():
+                    file.unlink()
+        save(
+            self.model.state_dict(),
+            self.log_dir.joinpath("models", "snapshots", f"snapshot_{epoch}.pth"),
+        )
 
+    def _clean_snapshots(self) -> None:
+        if self.log_dir.joinpath("models", "snapshots").is_dir():
+            for file in self.log_dir.joinpath("models", "snapshots").iterdir():
+                if file.is_file():
+                    file.unlink()
+            self.log_dir.joinpath("models", "snapshots").rmdir()
+
+    def _save_model(self) -> None:
+        model_path: Path = self.log_dir.joinpath("models", "model.pth")
         save(self.model.state_dict(), model_path)
         logger.info(f"Model saved to {model_path}")
 
     def train(
-        self, epochs: int = 100, store_only_last_model: bool = False
+        self, epochs: int = 100, store_only_last_model: bool = False, skip: bool = True
     ) -> dict[int, dict]:
         metrics: dict[int, dict] = {}
         self.model.to(self.device)
 
-        for epoch in range(epochs):
+        if skip:
+            begin: int = self._check_previous_state(epochs)
+            if begin == epochs:
+                logger.info("Skipping all epochs!")
+                self.model.load_state_dict(
+                    load(self.log_dir.joinpath("models", "model.pth"))
+                )
+            elif begin != 0:
+                logger.info(f"Skipping {begin} epochs!")
+                self.model.load_state_dict(
+                    load(
+                        self.log_dir.joinpath(
+                            "models", "snapshots", f"snapshot_{begin - 1}.pth"
+                        )
+                    )
+                )
+        else:
+            begin = 0
+
+        for epoch in range(begin, epochs):
             logger.info(f"Epoch {epoch + 1}/{epochs}")
 
             self.model.train(True)
             training_metrics = self._train_epoch(epoch)
             validation_metrics = self._validate_epoch()
             self._log_metrics(epoch, training_metrics, validation_metrics)
-            self._save_model(store_only_last_model, epoch)
+            self._save_snapshot(store_only_last_model, epoch)
 
             metrics[epoch + 1] = {
                 "training": training_metrics.get(),
                 "validation": validation_metrics.get(),
             }
 
+        self._save_model()
+        if store_only_last_model:
+            self._clean_snapshots()
         logger.debug("Training Done")
         return metrics
 

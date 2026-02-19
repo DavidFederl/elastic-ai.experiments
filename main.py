@@ -1,6 +1,5 @@
 import logging
 from datetime import datetime
-from os import makedirs
 from pathlib import Path
 from types import FunctionType
 from typing import Annotated
@@ -33,13 +32,15 @@ def main(
             readable=True,
         ),
     ],
+    resume: Annotated[
+        bool, typer.Option(help="Resume after aborted execution.")
+    ] = True,
     log_dir: Annotated[Path, typer.Option(help="Log directory.")] = Path(
         f"logs/{int(datetime.now().timestamp() * 1000)}"
     ),
-    debug: Annotated[bool, typer.Option(help="Enable debug mode.")] = False,
-    verbose: Annotated[bool, typer.Option(help="Enable verbose mode.")] = False,
+    verbose: Annotated[bool, typer.Option(help="Enable verbose output.")] = False,
 ):
-    logger: logging.Logger = setup_logging(log_dir, debug, verbose)
+    logger: logging.Logger = setup_logging(log_dir, verbose)
     configuration: Configuration = load_config(logger, config)
     configuration.save(log_dir.joinpath("config.yaml"))
 
@@ -51,13 +52,14 @@ def main(
     training.train(
         epochs=configuration.get("training.epochs", 100),
         store_only_last_model=configuration.get("training.store_only_last", False),
+        skip=resume,
     )
 
     experiment: Experiment = prepare_experiemt(logger, configuration, log_dir)
     experiment.run(model=model, dataset=dataset)
 
 
-def setup_logging(log_dir: Path, debug: bool, verbose: bool) -> logging.Logger:
+def setup_logging(log_dir: Path, verbose: bool) -> logging.Logger:
     """Setup Logging Facility.
 
     Args:
@@ -68,20 +70,11 @@ def setup_logging(log_dir: Path, debug: bool, verbose: bool) -> logging.Logger:
     Returns:
         Logger: Logger instance.
     """
-
-    def set_log_level(debug: bool, verbose: bool):
-        if debug:
-            return logging.DEBUG
-        elif verbose:
-            return logging.INFO
-        else:
-            return logging.ERROR
-
-    makedirs(log_dir, exist_ok=True)
+    log_dir.mkdir(exist_ok=True, parents=True)
 
     logging.basicConfig(
-        level=set_log_level(debug, verbose),
-        filename=log_dir.joinpath("experiment.log"),
+        level=logging.DEBUG if verbose else logging.INFO,
+        filename=log_dir.joinpath("app.log"),
         filemode="a",
         format="%(asctime)s %(levelname)-8s %(filename)s:%(lineno)s %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
@@ -228,7 +221,7 @@ def prepare_experiemt(
         logger.error(f"Unknown Experiment type: {experiment_name}")
         exit(1)
 
-    return experiment(log_dir=log_dir.joinpath("experiment"), config=configuration)
+    return experiment(log_dir=log_dir, config=configuration)
 
 
 if __name__ == "__main__":
