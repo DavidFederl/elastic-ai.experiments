@@ -19,10 +19,10 @@ class DeltaExperiment01(Experiment):
         log_dir: Path,
         config: Configuration,
     ) -> None:
-        self.log_dir = log_dir.joinpath(
-            "experiment", f"{datetime.now(timezone.utc).isoformat()}"
-        )
+        self.log_dir = log_dir.joinpath(f"{datetime.now(timezone.utc).isoformat()}")
         self.log_dir.mkdir(exist_ok=True, parents=True)
+        with open(self.log_dir.joinpath("meta.txt"), "w") as mf:
+            mf.write(f"EXPERIMEMNT: {self.__class__.__name__}")
 
         model_total_bits = config.get("model.parameter.fixed_point_total_bits", 16)
         model_frac_bits = config.get("model.parameter.fixed_point_fraction_bits", 8)

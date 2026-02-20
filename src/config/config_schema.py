@@ -4,7 +4,7 @@ from schema import And, Optional, Schema
 def get_config_schema() -> Schema:
     """Return the schema for the configuration file to perform validation."""
     return Schema(
-        {
+        schema={
             "dataset": {
                 "type": str,
                 Optional("parameter"): {
@@ -26,13 +26,15 @@ def get_config_schema() -> Schema:
                 "epochs": int,
                 Optional("store_only_last"): bool,
             },
-            "experiment": {
-                "type": str,
-                Optional("parameter"): {
-                    Optional("fixed_point_total_bits"): int,
-                    Optional("fixed_point_fraction_bits"): int,
-                },
-            },
+            "experiments": [
+                {
+                    "type": str,
+                    Optional("parameter"): {
+                        Optional("fixed_point_total_bits"): int,
+                        Optional("fixed_point_fraction_bits"): int,
+                    },
+                }
+            ],
         },
         ignore_extra_keys=True,
     )

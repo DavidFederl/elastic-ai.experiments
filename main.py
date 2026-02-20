@@ -12,7 +12,7 @@ import src.experiments
 import src.nn.data
 import src.nn.model
 from src.config import Configuration
-from src.experiments import Experiment
+from src.experiments import Experiment, ExperimentRunner
 from src.nn.data import Dataset
 from src.nn.model import Sequential
 from src.nn.training import Training, TrainingBuilder
@@ -55,8 +55,10 @@ def main(
         skip=resume,
     )
 
-    experiment: Experiment = prepare_experiemt(logger, configuration, log_dir)
-    experiment.run(model=model, dataset=dataset)
+    experiment_runner: ExperimentRunner = prepare_experiment(
+        logger, configuration, log_dir
+    )
+    experiment_runner.run(model, dataset)
 
 
 def setup_logging(log_dir: Path, verbose: bool) -> logging.Logger:
@@ -175,7 +177,26 @@ def prepare_training(
     dataset: Dataset,
     model: Sequential,
 ) -> Training:
-    builder = TrainingBuilder().model(model).dataset(dataset).log_dir(log_dir)
+    """Instantiate Training.
+
+    IMPRORTANT: Exit program with exit code '1' if instantiating training fails.
+
+    Args:
+        logger (logging.Logger): Logger instance.
+        cnfiguration (Configuration): Configuration instance.
+        log_dir (Path): Log directory.
+        dataset (Dataset): Dataset instance.
+        model (Sequential): Model instance.
+
+    Retuns:
+        training (Training): Training instance.
+    """
+    builder = (
+        TrainingBuilder()
+        .model(model)
+        .dataset(dataset)
+        .log_dir(log_dir.joinpath("training"))
+    )
     builder.device(configuration.get("training.device", "cpu"))
     match configuration.get("training.loss", ""):
         case "cse":
@@ -185,17 +206,16 @@ def prepare_training(
             builder.optimizer(optim.Adam(model.parameters()))
 
     try:
-        training = builder.build()
-        return training
+        return builder.build()
     except ValueError as exc:
         logger.error(f"Error while building Training: {exc}")
         exit(1)
 
 
-def prepare_experiemt(
+def prepare_experiment(
     logger: logging.Logger, configuration: Configuration, log_dir: Path
-) -> Experiment:
-    """Instantiate Experiment.
+) -> ExperimentRunner:
+    """Instantiate ExperimentRunner.
 
     IMPORTANT: Exit program with exit code '1' if loading confiugration fails.
                See log for further details!
@@ -203,25 +223,36 @@ def prepare_experiemt(
     Args:
         logger (logging.Logger): Logger instance.
         configuration (Configuration): Configuration instance.
-        log_dir (str): Log directory.
+        log_dir (Path): Log directory.
 
     Returns:
-        Dataset: Dataset instance.
+        expression_runner (ExpressionRunner): ExpressionRunner instance.
     """
-    experiment_name = configuration.get("experiment.type", "")
-    if experiment_name == "":
-        logger.error("Experiment not specified!")
-        exit(1)
+    experiment_configs: list[dict] = configuration.get("experiments", [])
+    logger.debug(f"Experiments: {experiment_configs}")
 
-    experiment_params = configuration.get("experiment.parameter", {})
+    experiments: list[Experiment] = []
+    for experiment_config in experiment_configs:
+        experiment_name: str = experiment_config.get("type", "")
+        if experiment_name == "":
+            logger.error(f"Experiment '{experiment_name}' not specified!")
+            exit(1)
 
-    experiment = getattr(src.experiments, experiment_name, None)
+        experiment = getattr(src.experiments, experiment_name, None)
+        if experiment is None:
+            logger.error(f"Unknown Experiment type: {experiment_name}")
+            exit(1)
+        if not isinstance(experiment, type(Experiment)):
+            logger.error(f"Unknown Experiment type: {experiment_name}")
+            exit(1)
 
-    if experiment is None or not isinstance(experiment, type(Experiment)):
-        logger.error(f"Unknown Experiment type: {experiment_name}")
-        exit(1)
+        experiment_params: dict = configuration.get("experiment.parameter", {})
 
-    return experiment(log_dir=log_dir, config=configuration)
+        experiments.append(
+            experiment(log_dir=log_dir.joinpath("experiments"), config=configuration)
+        )
+
+    return ExperimentRunner(log_dir.joinpath("experiments"), experiments)
 
 
 if __name__ == "__main__":
