@@ -169,9 +169,9 @@ class Metrics:
 
 
 class MetricWriter:
-    _storage_directory: str
+    _storage_directory: Path
 
-    def __init__(self, directory: str) -> None:
+    def __init__(self, directory: Path) -> None:
         """Create a MetricWriter instance.
 
         Args:
@@ -191,9 +191,8 @@ class MetricWriter:
         if self._storage_directory is None:
             raise ValueError("storage_directory cannot be None")
 
-        path = Path(self._storage_directory)
         try:
-            path.mkdir(exist_ok=True)
+            self._storage_directory.mkdir(exist_ok=True, parents=True)
         except (FileNotFoundError, NotADirectoryError):
             raise ValueError("parent directories must exist")
         except PermissionError:
@@ -206,7 +205,7 @@ class MetricWriter:
     ) -> None:
         metrics_dict = metrics.get(include_meta=write_meta)
         with open(
-            Path(self._storage_directory).joinpath(
+            self._storage_directory.joinpath(
                 filename or f"metrics_{datetime.now(timezone.utc).timestamp()}.json"
             ),
             "w",

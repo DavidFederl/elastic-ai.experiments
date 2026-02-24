@@ -138,9 +138,17 @@ class Training:
         self.tb_writer.flush()
         logger.info("Logging Tenbsorboard Done")
 
-        metric_writer = MetricWriter(f"{self.log_dir}/metrics")
-        metric_writer.write(training_metrics, False, f"training_epoch{epoch}.json")
-        metric_writer.write(validation_metrics, False, f"validation_epoch{epoch}.json")
+        metric_path = self.log_dir.joinpath("metrics")
+
+        training_metrics_directory = metric_path.joinpath("training")
+        training_metrics_directory.mkdir(exist_ok=True, parents=True)
+        training_metrics_writer = MetricWriter(training_metrics_directory)
+        training_metrics_writer.write(training_metrics, False, f"epoch{epoch}.json")
+
+        validation_metrics_directory = metric_path.joinpath("validation")
+        validation_metrics_directory.mkdir(exist_ok=True, parents=True)
+        validation_metrics_writer = MetricWriter(validation_metrics_directory)
+        validation_metrics_writer.write(validation_metrics, False, f"epoch{epoch}.json")
         logger.info("Logging Metrics Done")
 
     def _save_snapshot(self, store_only_last_model: bool, epoch: int) -> None:
