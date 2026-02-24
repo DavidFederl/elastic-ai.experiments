@@ -20,6 +20,7 @@ def get_config_schema() -> Schema:
                 },
             },
             "training": {
+                Optional("seed"): And(int, lambda s: s > 0, lambda s: s < 2**32),
                 Optional("loss"): str,
                 Optional("optimizer"): str,
                 Optional("device"): And(str, lambda d: d in ["cpu", "mps", "cuda"]),

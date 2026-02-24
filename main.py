@@ -15,7 +15,7 @@ from src.config import Configuration
 from src.experiments import Experiment, ExperimentRunner
 from src.nn.data import Dataset
 from src.nn.model import Sequential
-from src.nn.training import Training, TrainingBuilder
+from src.nn.training import Training, TrainingBuilder, set_inital_seed
 
 logger: logging.Logger
 configuration: Configuration
@@ -43,6 +43,8 @@ def main(
     logger: logging.Logger = setup_logging(log_dir, verbose)
     configuration: Configuration = load_config(logger, config)
     configuration.save(log_dir.joinpath("config.yaml"))
+
+    setup_seed(logger, configuration)
 
     dataset: Dataset = prepare_dataset(logger, configuration)
     model: Sequential = prepare_model(logger, configuration, dataset)
@@ -104,6 +106,13 @@ def load_config(logger: logging.Logger, config_file: Path) -> Configuration:
     logger.info("Configuration loaded!")
     logger.debug(f"Configuration: {config.get_all()}")
     return config
+
+
+def setup_seed(logger: logging.Logger, configuration: Configuration) -> None:
+    seed: int = configuration.get("training.seed", -1)
+    logger.debug(f"Seed is {seed}")
+    if seed >= 0:
+        set_inital_seed(seed, True)
 
 
 def prepare_dataset(logger: logging.Logger, configuration: Configuration) -> Dataset:
