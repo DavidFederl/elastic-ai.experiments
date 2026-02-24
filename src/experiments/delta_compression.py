@@ -8,7 +8,6 @@ from typing import Any
 from torch import Tensor, cat, no_grad, where
 from torch.nn.modules.loss import CrossEntropyLoss, _Loss
 
-from src.config import Configuration
 from src.nn.data import Dataset
 from src.nn.delta import ConsecutiveDeltaCompression, FxpParams
 from src.nn.model import Sequential, load_from_json, save_as_json
@@ -23,33 +22,40 @@ class DeltaExperiment01(Experiment):
     def __init__(
         self,
         log_dir: Path,
-        config: Configuration,
+        model_fixed_point_total_bits: int,
+        model_fixed_point_fraction_bits: int,
+        compression_fixed_point_total_bits: int,
+        compression_fixed_point_fraction_bits: int,
     ) -> None:
+        self.delta_compression = ConsecutiveDeltaCompression(
+            compress_params=FxpParams(
+                compression_fixed_point_total_bits,
+                compression_fixed_point_fraction_bits,
+            ),
+            inflate_params=FxpParams(
+                model_fixed_point_total_bits, model_fixed_point_fraction_bits
+            ),
+        )
+
         self.log_dir = log_dir.joinpath(f"{datetime.now(timezone.utc).isoformat()}")
         self.log_dir.mkdir(exist_ok=True, parents=True)
         with open(self.log_dir.joinpath("meta.txt"), "w") as mf:
-            mf.write(f"EXPERIMEMNT: {self.__class__.__name__}")
-
-        model_total_bits = config.get("model.parameter.fixed_point_total_bits", 16)
-        model_frac_bits = config.get("model.parameter.fixed_point_fraction_bits", 8)
-        compress_total_bits = config.get(
-            "experiment.parameter.fixed_point_total_bits", 16
-        )
-        compress_frac_bits = config.get(
-            "experiment.parameter.fixed_point_fraction_bits", 8
-        )
-
-        self.delta_compression = ConsecutiveDeltaCompression(
-            compress_params=FxpParams(compress_total_bits, compress_frac_bits),
-            inflate_params=FxpParams(model_total_bits, model_frac_bits),
-        )
+            mf.write(f"EXPERIMEMNT: {self.__class__.__name__}\n")
+            mf.write(f"FIXED POINT TOTAL BITS: {compression_fixed_point_total_bits}\n")
+            mf.write(
+                f"FIXED POINT FRACTION BITS: {compression_fixed_point_fraction_bits}\n"
+            )
 
         self.device = "cpu"
         self.loss_fn = CrossEntropyLoss()
 
         logger.info("Experiment: Delta01")
-        logger.debug(f"Compress Params: {compress_total_bits=}; {compress_frac_bits=}")
-        logger.debug(f"Inflate Params: {model_total_bits=}; {model_frac_bits=}")
+        logger.debug(
+            f"Compress Params: {compression_fixed_point_total_bits=}; {compression_fixed_point_fraction_bits=}"
+        )
+        logger.debug(
+            f"Inflate Params: {model_fixed_point_total_bits=}; {model_fixed_point_fraction_bits=}"
+        )
 
     def _simulate_compression(self, model: Sequential, dataset: Dataset) -> None:
         save_as_json(model.state_dict(), self.log_dir.joinpath("model_original.json"))

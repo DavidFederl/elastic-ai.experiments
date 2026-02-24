@@ -251,14 +251,17 @@ def prepare_experiment(
         if experiment is None:
             logger.error(f"Unknown Experiment type: {experiment_name}")
             exit(1)
-        if not isinstance(experiment, type(Experiment)):
+        if not callable(experiment):
+            logger.error(f"{experiment} is not callable")
+            exit(1)
+        if not (isinstance(experiment, type) and issubclass(experiment, Experiment)):
             logger.error(f"Unknown Experiment type: {experiment_name}")
             exit(1)
 
-        experiment_params: dict = configuration.get("experiment.parameter", {})
+        experiment_params: dict = experiment_config.get("parameter", {})
 
         experiments.append(
-            experiment(log_dir=log_dir.joinpath("experiments"), config=configuration)
+            experiment(log_dir=log_dir.joinpath("experiments"), **experiment_params)
         )
 
     return ExperimentRunner(log_dir.joinpath("experiments"), experiments)
