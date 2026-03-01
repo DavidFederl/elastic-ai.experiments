@@ -1,19 +1,56 @@
 import logging
 
 from elasticai.creator.nn import Sequential
-from elasticai.creator.nn.fixed_point import HardTanh as Tanh
-from elasticai.creator.nn.fixed_point import Linear
+from elasticai.creator.nn.fixed_point import HardTanh as TanhEai
+from elasticai.creator.nn.fixed_point import Linear as LinearEai
+from torch.nn import Hardtanh as TanhTorch
+from torch.nn import Linear as LinearTorch
+from torch.nn import Sequential as SequentialTorch
 
 logger = logging.getLogger(__name__)
 
 
-def linear_v1(
+def linear_v1_torch(
+    in_features: int,
+    out_features: int,
+) -> tuple[str, SequentialTorch]:
+    """Model consisting of a linear layer followed by a tanh layer.
+
+    IMPORTANT: FP32 based model!
+
+    Args:
+        in_features (int): Number of input features.
+        out_features (int): Number of output features.
+
+    Returns:
+        Squence: Sequential model.
+    """
+    logger.info("Model: Linear v1 (PyTorch)")
+    logger.debug(f"Model: Linear v1 configuration: {in_features=}, {out_features=}")
+    return "linear_v1", SequentialTorch(
+        LinearTorch(in_features=in_features, out_features=150),
+        TanhTorch(),
+        LinearTorch(in_features=150, out_features=16),
+        TanhTorch(),
+        LinearTorch(in_features=16, out_features=400),
+        TanhTorch(),
+        LinearTorch(in_features=400, out_features=120),
+        TanhTorch(),
+        LinearTorch(in_features=120, out_features=84),
+        TanhTorch(),
+        LinearTorch(in_features=84, out_features=out_features),
+    )
+
+
+def linear_v1_eai(
     in_features: int,
     out_features: int,
     fixed_point_total_bits: int,
     fixed_point_fraction_bits: int,
 ) -> tuple[str, Sequential]:
     """Model consisting of a linear layer followed by a tanh layer.
+
+    IMPORTANT: Fixed Point based model!
 
     Args:
         in_features (int): Number of input features.
@@ -25,47 +62,47 @@ def linear_v1(
     Returns:
         Squence: Sequential model.
     """
-    logger.info("Model: Linear v1")
+    logger.info("Model: Linear v1 (elastic-AI)")
     logger.debug(
         f"Model: Linear v1 configuration: {in_features=}, {out_features=}, {fixed_point_total_bits=}, {fixed_point_fraction_bits=}"
     )
     return "linear_v1", Sequential(
-        Linear(
+        LinearEai(
             in_features=in_features,
             out_features=150,
             total_bits=fixed_point_total_bits,
             frac_bits=fixed_point_fraction_bits,
         ),
-        Tanh(total_bits=fixed_point_total_bits, frac_bits=fixed_point_fraction_bits),
-        Linear(
+        TanhEai(total_bits=fixed_point_total_bits, frac_bits=fixed_point_fraction_bits),
+        LinearEai(
             in_features=150,
             out_features=16,
             total_bits=fixed_point_total_bits,
             frac_bits=fixed_point_fraction_bits,
         ),
-        Tanh(total_bits=fixed_point_total_bits, frac_bits=fixed_point_fraction_bits),
-        Linear(
+        TanhEai(total_bits=fixed_point_total_bits, frac_bits=fixed_point_fraction_bits),
+        LinearEai(
             in_features=16,
             out_features=400,
             total_bits=fixed_point_total_bits,
             frac_bits=fixed_point_fraction_bits,
         ),
-        Tanh(total_bits=fixed_point_total_bits, frac_bits=fixed_point_fraction_bits),
-        Linear(
-            in_features=16 * 5 * 5,
+        TanhEai(total_bits=fixed_point_total_bits, frac_bits=fixed_point_fraction_bits),
+        LinearEai(
+            in_features=400,
             out_features=120,
             total_bits=fixed_point_total_bits,
             frac_bits=fixed_point_fraction_bits,
         ),
-        Tanh(total_bits=fixed_point_total_bits, frac_bits=fixed_point_fraction_bits),
-        Linear(
+        TanhEai(total_bits=fixed_point_total_bits, frac_bits=fixed_point_fraction_bits),
+        LinearEai(
             in_features=120,
             out_features=84,
             total_bits=fixed_point_total_bits,
             frac_bits=fixed_point_fraction_bits,
         ),
-        Tanh(total_bits=fixed_point_total_bits, frac_bits=fixed_point_fraction_bits),
-        Linear(
+        TanhEai(total_bits=fixed_point_total_bits, frac_bits=fixed_point_fraction_bits),
+        LinearEai(
             in_features=84,
             out_features=out_features,
             total_bits=fixed_point_total_bits,
