@@ -83,6 +83,10 @@ def setup_logging(log_dir: Path, verbose: bool) -> logging.Logger:
         format="%(asctime)s %(levelname)-8s %(filename)s:%(lineno)s %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
     )
+
+    with log_dir.joinpath("app.log").open("a") as log_file:
+        log_file.write("\n==================================================\n\n")
+
     return logging.getLogger(__name__)
 
 
@@ -264,7 +268,7 @@ def prepare_experiment(
             experiment(log_dir=log_dir.joinpath("experiments"), **experiment_params)
         )
 
-    return ExperimentRunner(log_dir.joinpath("experiments"), experiments)
+    return ExperimentRunner(experiments)
 
 
 if __name__ == "__main__":

@@ -1,5 +1,4 @@
-from elasticai.creator.arithmetic import FxpParams
+from .consecutive import compress as compress_consecutive
+from .consecutive import inflate as inflate_consecutive
 
-from .consecutive import ConsecutiveDeltaCompression
-
-__all__ = ["ConsecutiveDeltaCompression", "FxpParams"]
+__all__ = ["compress_consecutive", "inflate_consecutive"]

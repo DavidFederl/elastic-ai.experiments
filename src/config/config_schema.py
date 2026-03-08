@@ -31,8 +31,9 @@ def get_config_schema() -> Schema:
                 {
                     "type": str,
                     Optional("parameter"): {
-                        Optional("fixed_point_total_bits"): int,
-                        Optional("fixed_point_fraction_bits"): int,
+                        Optional("model_fixed_point_total_bits"): int,
+                        Optional("model_fixed_point_fraction_bits"): int,
+                        Optional("delta_bit_width"): int,
                     },
                 }
             ],

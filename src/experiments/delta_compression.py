@@ -5,11 +5,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from elasticai.creator.arithmetic import FxpArithmetic, FxpParams
+from elasticai.creator.nn.fixed_point import MathOperations
 from torch import Tensor, cat, no_grad, where
 from torch.nn.modules.loss import CrossEntropyLoss, _Loss
 
 from src.nn.data import Dataset
-from src.nn.delta import ConsecutiveDeltaCompression, FxpParams
+from src.nn.delta import compress_consecutive, inflate_consecutive
 from src.nn.model import Sequential, load_from_json, save_as_json
 from src.nn.training import Metrics
 
@@ -24,50 +26,71 @@ class DeltaExperiment01(Experiment):
         log_dir: Path,
         model_fixed_point_total_bits: int,
         model_fixed_point_fraction_bits: int,
-        compression_fixed_point_total_bits: int,
-        compression_fixed_point_fraction_bits: int,
+        delta_bit_width: int,
     ) -> None:
-        self.delta_compression = ConsecutiveDeltaCompression(
-            compress_params=FxpParams(
-                compression_fixed_point_total_bits,
-                compression_fixed_point_fraction_bits,
-            ),
-            inflate_params=FxpParams(
-                model_fixed_point_total_bits, model_fixed_point_fraction_bits
-            ),
+        self.model_fxp_params: FxpParams = FxpParams(
+            total_bits=model_fixed_point_total_bits,
+            frac_bits=model_fixed_point_fraction_bits,
+        )
+        self.model_fxp_arithmetic: FxpArithmetic = FxpArithmetic(
+            fxp_params=self.model_fxp_params
+        )
+        self.model_fxp_ops: MathOperations = MathOperations(
+            config=self.model_fxp_arithmetic
         )
 
-        self.log_dir = log_dir.joinpath(f"{datetime.now(timezone.utc).isoformat()}")
+        self.delta_bit_width: int = delta_bit_width
+
+        self.log_dir: Path = log_dir.joinpath(
+            f"{datetime.now(timezone.utc).isoformat()}"
+        )
         self.log_dir.mkdir(exist_ok=True, parents=True)
-        with open(self.log_dir.joinpath("meta.txt"), "w") as mf:
-            mf.write(f"EXPERIMEMNT: {self.__class__.__name__}\n")
-            mf.write(f"FIXED POINT TOTAL BITS: {compression_fixed_point_total_bits}\n")
-            mf.write(
-                f"FIXED POINT FRACTION BITS: {compression_fixed_point_fraction_bits}\n"
+        with open(self.log_dir.joinpath("meta.txt"), "w") as meta_file:
+            meta_file.write(f"EXPERIMEMNT: {self.__class__.__name__}\n")
+            meta_file.write(
+                f"MODEL PARAMS: (fxp_total_bits={model_fixed_point_total_bits}, fxp_frac_bits={model_fixed_point_fraction_bits})\n"
             )
+            meta_file.write(f"DELTA PARAMS: (delta_bit_width={delta_bit_width})\n")
 
         self.device = "cpu"
         self.loss_fn = CrossEntropyLoss()
 
         logger.info("Experiment: Delta01")
         logger.debug(
-            f"Compress Params: {compression_fixed_point_total_bits=}; {compression_fixed_point_fraction_bits=}"
-        )
-        logger.debug(
-            f"Inflate Params: {model_fixed_point_total_bits=}; {model_fixed_point_fraction_bits=}"
+            f"Model params: (fxp_total_bits={model_fixed_point_total_bits}, fxp_frac_bits={model_fixed_point_fraction_bits}); Delta params: (delta_bit_width={delta_bit_width})"
         )
 
     def _simulate_compression(self, model: Sequential, dataset: Dataset) -> None:
         save_as_json(model.state_dict(), self.log_dir.joinpath("model_original.json"))
-        logger.debug(f"Model Copy: {model}")
 
-        model = self.delta_compression.compress(model)
-        save_as_json(model.state_dict(), self.log_dir.joinpath("model_compressed.json"))
-        logger.debug(f"Model Compressed: {model}")
+        logger.debug("Converting rational weights to integer weights")
+        fxp_as_int_weights: dict[str, Tensor] = model.state_dict()
+        for name, tensor in fxp_as_int_weights.items():
+            fxp_as_int_weights[name] = self.model_fxp_arithmetic.cut_as_integer(
+                self.model_fxp_ops.quantize(tensor)
+            )
+        save_as_json(fxp_as_int_weights, self.log_dir.joinpath("model_quantized.json"))
 
-        model = self.delta_compression.inflate(model)
-        save_as_json(model.state_dict(), self.log_dir.joinpath("model_inflated.json"))
-        logger.debug(f"Model Inflated: {model}")
+        logger.debug("Compressing and inflating weights")
+        for name, tensor in fxp_as_int_weights.items():
+            compressed = compress_consecutive(
+                data=tensor, bit_width=self.delta_bit_width
+            )
+            inflated = inflate_consecutive(
+                delta=compressed, bit_width=self.model_fxp_params.total_bits
+            )
+            fxp_as_int_weights[name] = inflated
+        save_as_json(
+            fxp_as_int_weights, self.log_dir.joinpath("model_quantized_simulated.json")
+        )
+
+        logger.debug("Converting integer weights to rational weights")
+        for name, tensor in fxp_as_int_weights.items():
+            fxp_as_int_weights[name] = self.model_fxp_arithmetic.as_rational(tensor)
+        save_as_json(fxp_as_int_weights, self.log_dir.joinpath("model_simulated.json"))
+
+        logger.debug("Loading delta simulated model")
+        model.load_state_dict(fxp_as_int_weights)
 
     def _generate_flattend_weights(self, parameter: dict[str, Tensor]) -> Tensor:
         filterd_keys: list[str] = list(
@@ -78,12 +101,41 @@ class DeltaExperiment01(Experiment):
         )
         return cat(weight_tensors)
 
-    def _analyze_infomration_loss(self) -> dict[str, dict[str, float]]:
+    def _analyze_quntized_weights(self) -> dict[str, dict[str, float]]:
+        parameter_original: dict[str, Tensor] = load_from_json(
+            self.log_dir.joinpath("model_quantized.json")
+        )
+        parameter_simulated: dict[str, Tensor] = load_from_json(
+            self.log_dir.joinpath("model_quantized_simulated.json")
+        )
+
+        weights_original: Tensor = self._generate_flattend_weights(parameter_original)
+        weights_inflated: Tensor = self._generate_flattend_weights(parameter_simulated)
+        weights_difference: Tensor = weights_original - weights_inflated
+
+        results: dict[str, dict[str, int | float]] = {}
+        results["original_quant"] = {}
+        results["original_quant"]["max"] = weights_original.max().item()
+        results["original_quant"]["min"] = weights_original.min().item()
+        results["simulated_quant"] = {}
+        results["simulated_quant"]["max"] = weights_inflated.max().item()
+        results["simulated_quant"]["min"] = weights_inflated.min().item()
+        results["difference_quant"] = {}
+        results["difference_quant"]["max"] = weights_difference.max().item()
+        results["difference_quant"]["min"] = weights_difference.min().item()
+        results["difference_quant"]["num_total"] = weights_difference.numel()
+        results["difference_quant"]["num_incorrect"] = (
+            where(weights_difference.abs() > 0, 1, 0).sum().item()
+        )
+
+        return results
+
+    def _analyze_weights(self) -> dict[str, dict[str, float]]:
         parameter_original: dict[str, Tensor] = load_from_json(
             self.log_dir.joinpath("model_original.json")
         )
         parameter_inflated: dict[str, Tensor] = load_from_json(
-            self.log_dir.joinpath("model_inflated.json")
+            self.log_dir.joinpath("model_simulated.json")
         )
 
         weights_original: Tensor = self._generate_flattend_weights(parameter_original)
@@ -94,14 +146,12 @@ class DeltaExperiment01(Experiment):
         results["original"] = {}
         results["original"]["max"] = weights_original.max().item()
         results["original"]["min"] = weights_original.min().item()
-        results["original"]["mean"] = weights_original.abs().mean().item()
         results["simulated"] = {}
         results["simulated"]["max"] = weights_inflated.max().item()
         results["simulated"]["min"] = weights_inflated.min().item()
-        results["simulated"]["mean"] = weights_inflated.abs().mean().item()
         results["difference"] = {}
-        results["difference"]["max"] = weights_difference.abs().max().item()
-        results["difference"]["mean"] = weights_difference.abs().mean().item()
+        results["difference"]["max"] = weights_difference.max().item()
+        results["difference"]["min"] = weights_difference.min().item()
         results["difference"]["num_total"] = weights_difference.numel()
         results["difference"]["num_incorrect"] = (
             where(weights_difference.abs() > 0, 1, 0).sum().item()
@@ -138,12 +188,14 @@ class DeltaExperiment01(Experiment):
         return validation_metrics.get()  # type: ignore
 
     def run(self, model: Sequential, dataset: Dataset) -> None:
-        logger.info("START Experiment")
+        logger.info(f"START {self.__class__.__name__}")
 
         model_copy: Sequential = copy.deepcopy(model)
         self._simulate_compression(model_copy, dataset)
 
-        metrics_information_loss: dict[str, Any] = self._analyze_infomration_loss()
+        metrics_information_loss: dict[str, Any] = {}
+        metrics_information_loss.update(self._analyze_quntized_weights())
+        metrics_information_loss.update(self._analyze_weights())
 
         metrics_information_loss["original"]["metrics"] = (  # type: ignore
             self._perform_model_evaluation(model, dataset, self.loss_fn, self.device)
@@ -158,4 +210,4 @@ class DeltaExperiment01(Experiment):
         with self.log_dir.joinpath("metrics.json").open("w") as file:
             json.dump(metrics_information_loss, file, indent=4)
 
-        logger.info("END Experiment")
+        logger.info(f"FINISHED {self.__class__.__name__}")
