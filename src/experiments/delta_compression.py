@@ -6,7 +6,6 @@ from pathlib import Path
 from typing import Any
 
 from elasticai.creator.arithmetic import FxpArithmetic, FxpParams
-from elasticai.creator.nn.fixed_point import MathOperations
 from torch import Tensor, cat, no_grad, where
 from torch.nn.modules.loss import CrossEntropyLoss, _Loss
 
@@ -21,6 +20,12 @@ logger = logging.getLogger(__name__)
 
 
 class DeltaExperiment01(Experiment):
+    ORIGINAL_STATE_DICT_FILE = "model_original.json"
+    INT_STATE_DICT_FILE = "model_int.json"
+    DELTA_INFLATED_STATE_DICT_FILE = "model_delta_inflated.json"
+    DELTA_COMPRESSED_STATE_DICT_FILE = "model_delta_compressed.json"
+    SIMULATED_STATE_DICT_FILE = "model_simulated.json"
+
     def __init__(
         self,
         log_dir: Path,
@@ -34,9 +39,6 @@ class DeltaExperiment01(Experiment):
         )
         self.model_fxp_arithmetic: FxpArithmetic = FxpArithmetic(
             fxp_params=self.model_fxp_params
-        )
-        self.model_fxp_ops: MathOperations = MathOperations(
-            config=self.model_fxp_arithmetic
         )
 
         self.delta_bit_width: int = delta_bit_width
@@ -60,37 +62,63 @@ class DeltaExperiment01(Experiment):
             f"Model params: (fxp_total_bits={model_fixed_point_total_bits}, fxp_frac_bits={model_fixed_point_fraction_bits}); Delta params: (delta_bit_width={delta_bit_width})"
         )
 
-    def _simulate_compression(self, model: Sequential, dataset: Dataset) -> None:
-        save_as_json(model.state_dict(), self.log_dir.joinpath("model_original.json"))
+    def _get_original_model_state(self, model: Sequential) -> dict[str, Tensor]:
+        logger.debug("Retriving original model state")
+        state_dict: dict[str, Tensor] = model.state_dict()
+        save_as_json(state_dict, self.log_dir.joinpath(self.ORIGINAL_STATE_DICT_FILE))
+        return state_dict
 
+    def _convert_weights_to_integer(
+        self, state_dict: dict[str, Tensor]
+    ) -> dict[str, Tensor]:
         logger.debug("Converting rational weights to integer weights")
-        fxp_as_int_weights: dict[str, Tensor] = model.state_dict()
-        for name, tensor in fxp_as_int_weights.items():
-            fxp_as_int_weights[name] = self.model_fxp_arithmetic.cut_as_integer(
-                self.model_fxp_ops.quantize(tensor)
-            )
-        save_as_json(fxp_as_int_weights, self.log_dir.joinpath("model_quantized.json"))
+        for name, tensor in state_dict.items():
+            state_dict[name] = self.model_fxp_arithmetic.cut_as_integer(tensor)
+        save_as_json(state_dict, self.log_dir.joinpath(self.INT_STATE_DICT_FILE))
+        return state_dict
 
-        logger.debug("Compressing and inflating weights")
-        for name, tensor in fxp_as_int_weights.items():
+    def _apply_delta_compression(
+        self, state_dict: dict[str, Tensor]
+    ) -> dict[str, Tensor]:
+        logger.debug("Compressing weights")
+        for name, tensor in state_dict.items():
             compressed = compress_consecutive(
                 data=tensor, bit_width=self.delta_bit_width
             )
-            inflated = inflate_consecutive(
-                delta=compressed, bit_width=self.model_fxp_params.total_bits
-            )
-            fxp_as_int_weights[name] = inflated
+            state_dict[name] = compressed
         save_as_json(
-            fxp_as_int_weights, self.log_dir.joinpath("model_quantized_simulated.json")
+            state_dict, self.log_dir.joinpath(self.DELTA_COMPRESSED_STATE_DICT_FILE)
         )
 
+        logger.debug("Inflating weights")
+        for name, tensor in state_dict.items():
+            inflated = inflate_consecutive(
+                delta=tensor, bit_width=self.model_fxp_params.total_bits
+            )
+            state_dict[name] = inflated
+        save_as_json(
+            state_dict, self.log_dir.joinpath(self.DELTA_INFLATED_STATE_DICT_FILE)
+        )
+
+        return state_dict
+
+    def _convert_integer_to_weights(
+        self, state_dict: dict[str, Tensor]
+    ) -> dict[str, Tensor]:
         logger.debug("Converting integer weights to rational weights")
-        for name, tensor in fxp_as_int_weights.items():
-            fxp_as_int_weights[name] = self.model_fxp_arithmetic.as_rational(tensor)
-        save_as_json(fxp_as_int_weights, self.log_dir.joinpath("model_simulated.json"))
+        for name, tensor in state_dict.items():
+            state_dict[name] = self.model_fxp_arithmetic.as_rational(tensor)
+        save_as_json(state_dict, self.log_dir.joinpath(self.SIMULATED_STATE_DICT_FILE))
+        return state_dict
+
+    def _simulate_compression(self, model: Sequential, dataset: Dataset) -> None:
+        model_state_dict: dict[str, Tensor] = self._get_original_model_state(model)
+        model_state_dict = self._convert_weights_to_integer(model_state_dict)
+        model_state_dict = self._apply_delta_compression(model_state_dict)
+        model_state_dict = self._convert_integer_to_weights(model_state_dict)
 
         logger.debug("Loading delta simulated model")
-        model.load_state_dict(fxp_as_int_weights)
+        model.load_state_dict(model_state_dict)
 
     def _generate_flattend_weights(self, parameter: dict[str, Tensor]) -> Tensor:
         filterd_keys: list[str] = list(
@@ -103,10 +131,10 @@ class DeltaExperiment01(Experiment):
 
     def _analyze_quntized_weights(self) -> dict[str, dict[str, float]]:
         parameter_original: dict[str, Tensor] = load_from_json(
-            self.log_dir.joinpath("model_quantized.json")
+            self.log_dir.joinpath(self.INT_STATE_DICT_FILE)
         )
         parameter_simulated: dict[str, Tensor] = load_from_json(
-            self.log_dir.joinpath("model_quantized_simulated.json")
+            self.log_dir.joinpath(self.DELTA_INFLATED_STATE_DICT_FILE)
         )
 
         weights_original: Tensor = self._generate_flattend_weights(parameter_original)
@@ -132,10 +160,10 @@ class DeltaExperiment01(Experiment):
 
     def _analyze_weights(self) -> dict[str, dict[str, float]]:
         parameter_original: dict[str, Tensor] = load_from_json(
-            self.log_dir.joinpath("model_original.json")
+            self.log_dir.joinpath(self.ORIGINAL_STATE_DICT_FILE)
         )
         parameter_inflated: dict[str, Tensor] = load_from_json(
-            self.log_dir.joinpath("model_simulated.json")
+            self.log_dir.joinpath(self.SIMULATED_STATE_DICT_FILE)
         )
 
         weights_original: Tensor = self._generate_flattend_weights(parameter_original)
@@ -197,11 +225,11 @@ class DeltaExperiment01(Experiment):
         metrics_information_loss.update(self._analyze_quntized_weights())
         metrics_information_loss.update(self._analyze_weights())
 
-        metrics_information_loss["original"]["metrics"] = (  # type: ignore
+        metrics_information_loss["original"]["metrics"] = (
             self._perform_model_evaluation(model, dataset, self.loss_fn, self.device)
         )
 
-        metrics_information_loss["simulated"]["metrics"] = (  # type: ignore
+        metrics_information_loss["simulated"]["metrics"] = (
             self._perform_model_evaluation(
                 model_copy, dataset, self.loss_fn, self.device
             )
