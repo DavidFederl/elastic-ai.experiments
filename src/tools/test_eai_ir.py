@@ -37,16 +37,8 @@ def linear(module: nn.Linear) -> dict:
         # "biases": module.bias.detach().numpy().tolist()
         # if module.bias is not None
         # else [],
-        # "weights": (quant_ops.quantize(module.weight.detach())).numpy().tolist(),
-        # "biases": quant_ops.quantize(module.bias.detach()).numpy().tolist()
-        # if module.bias is not None
-        # else [],
-        "weights": quant_arithmetic.cut_as_integer(
-            (quant_ops.quantize(module.weight.detach())).numpy().tolist()
-        ),
-        "biases": quant_arithmetic.cut_as_integer(
-            quant_ops.quantize(module.bias.detach()).numpy().tolist()
-        )
+        "weights": quant_arithmetic.cut_as_integer(module.weight.detach().tolist()),
+        "biases": quant_arithmetic.cut_as_integer(module.bias.detach().tolist())
         if module.bias is not None
         else [],
     }
@@ -67,5 +59,5 @@ data["graph"] = serializer.serialize(ir_graph)
 for name in ir_registry:
     data[name] = serializer.serialize(ir_registry[name])
 
-with Path("test_quant_int.json").open("w") as f:
+with Path("test_int.json").open("w") as f:
     json.dump(data, f, indent=4)
