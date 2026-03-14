@@ -33,7 +33,7 @@ devenv shell
 > The first time you run `devenv shell`, it may take a few minutes to download
 > and set up the Docker container.
 
-> [!INFORMATION]
+> [!INFO]
 > Devenv will automatically install [astral-uv](https://astral.sh/uv/)
 > and setup a virtual environment providing python and its required packages.
 

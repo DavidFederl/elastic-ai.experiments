@@ -59,46 +59,7 @@ experiment:
 ```
 
 > [!TIP]
-> Valid entries for the `type` fields can be retrieved from
-> the [config_schema.py](./src/config/config_schema.py)
-
-<details>
-
-<summary>Max Schema</summary>
-
-> [!IMPORTANT]
-> The fields not in the minimal schema are optional and can be omitted.
-
-```yaml
-dataset:
-  type: <datset-name>
-  parameter:
-    storage_path: <local-path>
-    batch_size: <batch-size>
-
-model:
-  type: <model-name>
-  parameter:
-    fixed_point_total_bits: <total-bitwidth>
-    fixed_point_fraction_bits: <fraction-bits>
-
-training:
-  epochs: <training-epochs>
-  device: <cpu|cude|mps>
-  loss: <cse|mse|...>
-  optimizer: <adam|sgd|...>
-  seed: <seed>
-  store_only_last: <true|false>
-
-experiment:
-  type: <experiment-name>
-  parameter:
-    model_fixed_point_total_bits: <delta-bitwidth>
-    model_fixed_point_fraction_bits: <delta-fraction-bits>
-    delta_bit_width: <delta-bitwidth>
-```
-
-</details>
+> A more detailed information can be found in [configuration README](./src/config/README.md)!
 
 ## Contributing
 
