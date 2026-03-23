@@ -1,0 +1,38 @@
+name: "Release"
+on:
+  workflow_dispatch:
+  push:
+    branches: ["main"]
+
+jobs:
+  semantic_release:
+    runs-on: ubuntu-latest
+    name: semantic versioning release
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: create release
+        id: release
+        uses: cocogitto/cocogitto-action@v4
+        with:
+          command: bump
+          args: --auto
+          git-user: "David P. Federl"
+          git-user-email: "david-peter.federl@uni-due.de"
+
+      - name: generate changelog
+        run: |
+          cog changelog --at ${{ steps.release.outputs.version }} -t full_hash > GITHUB_CHANGELOG.md
+
+      - name: upload release
+        uses: softprops/action-gh-release@v2
+        with:
+          token: ${{ secrets.RELEASE_TOKEN }}
+          body_path: GITHUB_CHANGELOG.md
+          tag_name: ${{ steps.release.outputs.version }}
