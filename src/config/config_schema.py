@@ -13,10 +13,15 @@ def get_config_schema() -> Schema:
                 },
             },
             "model": {
-                "type": And(str, lambda t: t in ["linear_v1_eai", "linear_v1_torch"]),
+                "type": And(
+                    str,
+                    lambda t: t
+                    in ["linear_v1_eai", "linear_v1_torch", "linear_v1_delta"],
+                ),
                 Optional("parameter"): {
                     Optional("fixed_point_total_bits"): int,
                     Optional("fixed_point_fraction_bits"): int,
+                    Optional("delta_bit_width"): int,
                 },
             },
             "training": {
