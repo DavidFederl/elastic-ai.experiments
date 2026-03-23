@@ -2,6 +2,20 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## 0.2.0 - 2026-03-23
+#### Features
+- add sequential execution of multiple experiments - (a4d49bc) - David P. Federl
+- add script to analyze weights - (ca683fb) - David P. Federl
+#### Bug Fixes
+- remove unnecessary quantize operation - (88f32a3) - David P. Federl
+- delta compression - (4878d80) - David P. Federl
+#### Documentation
+- add documentation for configuration - (d744842) - David P. Federl
+#### Miscellaneous Chores
+- update devenv - (4e4b03b) - David P. Federl
+
+- - -
+
 ## 0.1.0 - 2026-03-13
 #### Features
 - fix delta experiment  - (8b3131e) - David P. Federl
