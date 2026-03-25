@@ -26,6 +26,7 @@ class Training:
         device: str,
         log_dir: Path,
         early_stopping: tuple[int, float] | None = None,
+        load_best: bool = False,
     ):
         log_dir.mkdir(exist_ok=True, parents=True)
         log_dir.joinpath("models").mkdir(exist_ok=True)
@@ -48,6 +49,8 @@ class Training:
         self.device = device
         self.log_dir = log_dir
         self.tb_writer = SummaryWriter(log_dir=log_dir.joinpath("tensorboard"))
+        self.load_best = load_best
+        self.best_epoch: tuple[int, float] = (0, float("inf"))
 
     def _check_previous_state(self, epochs: int) -> int:
         model_dir: Path = self.log_dir.joinpath("models")
@@ -238,13 +241,30 @@ class Training:
                 "validation": validation_metrics.get(),
             }
 
+            if self.best_epoch[1] > validation_metrics.get_loss():
+                logger.debug(
+                    f"updating best epoch: ({epoch=}, {validation_metrics.get_loss()=})"
+                )
+                self.best_epoch = (epoch, validation_metrics.get_loss())
+
             if self._check_early_stopping(epoch, validation_metrics.get_loss()):
                 logger.info("Early Stopping Triggered!")
                 break
 
         self._save_model()
+
+        if self.load_best:
+            logger.info(f"Loading state from epoch {self.best_epoch[0]}")
+            state_dict = load(
+                self.log_dir.joinpath(
+                    "models", "snapshots", f"snapshot_{self.best_epoch[0]}.pth"
+                )
+            )
+            self.model.load_state_dict(state_dict)
+
         if store_only_last_model:
             self._clean_snapshots()
+
         logger.debug("Training Done")
         return metrics
 
@@ -258,6 +278,7 @@ class TrainingBuilder:
         self._device: str | None = None
         self._log_dir: Path | None = None
         self._early_stopping: tuple[int, float] | None = None
+        self._load_best: bool = False
 
     def model(self, model: Sequential) -> Self:
         self._model = model
@@ -294,6 +315,11 @@ class TrainingBuilder:
         logger.debug(f"add early_stopping: ({patience=}, {threshold=})")
         return self
 
+    def load_best(self) -> Self:
+        self._load_best = True
+        logger.debug("set returning best model")
+        return self
+
     def build(self) -> Training:
         """Build Training instance.
 
@@ -315,7 +341,7 @@ class TrainingBuilder:
         log_dir = self._log_dir or Path("logs/{int(datetime.now().timestamp() * 1000)}")
 
         logger.debug(
-            f"build Training: {self._model=}, {self._dataset=}, {loss_fn=}, {optimizer=}, {device=}, {log_dir=}, {self._early_stopping=}"
+            f"build Training: {self._model=}, {self._dataset=}, {loss_fn=}, {optimizer=}, {device=}, {log_dir=}, {self._early_stopping=}, {self._load_best=}"
         )
 
         return Training(
@@ -326,4 +352,5 @@ class TrainingBuilder:
             device=device,
             log_dir=log_dir,
             early_stopping=self._early_stopping,
+            load_best=self._load_best,
         )

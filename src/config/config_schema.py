@@ -31,6 +31,7 @@ def get_config_schema() -> Schema:
                 Optional("optimizer"): str,
                 Optional("device"): And(str, lambda d: d in ["cpu", "mps", "cuda"]),
                 "epochs": int,
+                "load_best": bool,
                 Optional("store_only_last"): bool,
                 Optional("early_stopping"): {
                     "patience": And(int, lambda s: s > 0),

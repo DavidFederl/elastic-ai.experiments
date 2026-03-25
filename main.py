@@ -223,6 +223,8 @@ def prepare_training(
             early_stopping_config.get("patience", 0),
             early_stopping_config.get("threshold", 0.0),
         )
+    if configuration.get("training.load_best", False):
+        builder.load_best()
 
     try:
         return builder.build()
