@@ -15,8 +15,9 @@ def get_config_schema() -> Schema:
             "model": {
                 "type": And(
                     str,
-                    lambda t: t
-                    in ["linear_v1_eai", "linear_v1_torch", "linear_v1_delta"],
+                    lambda t: (
+                        t in ["linear_v1_eai", "linear_v1_torch", "linear_v1_delta"]
+                    ),
                 ),
                 Optional("parameter"): {
                     Optional("fixed_point_total_bits"): int,
@@ -31,6 +32,10 @@ def get_config_schema() -> Schema:
                 Optional("device"): And(str, lambda d: d in ["cpu", "mps", "cuda"]),
                 "epochs": int,
                 Optional("store_only_last"): bool,
+                Optional("early_stopping"): {
+                    "patience": And(int, lambda s: s > 0),
+                    "threshold": And(float, lambda t: t > 0),
+                },
             },
             "experiments": [
                 {

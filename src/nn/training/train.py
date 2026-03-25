@@ -25,11 +25,21 @@ class Training:
         optimiezer: optim.Optimizer,
         device: str,
         log_dir: Path,
+        early_stopping: tuple[int, float] | None = None,
     ):
         log_dir.mkdir(exist_ok=True, parents=True)
         log_dir.joinpath("models").mkdir(exist_ok=True)
         log_dir.joinpath("models", "snapshots").mkdir(exist_ok=True)
         log_dir.joinpath("tensorboard").mkdir(exist_ok=True)
+
+        if early_stopping is not None:
+            self.early_stopping = True
+            self.early_stopping_patience: int = early_stopping[0]
+            self.early_stopping_threshold: float = early_stopping[1]
+            self.early_stopping_counter: int = 0
+            self.best_loss: float = float("inf")
+        else:
+            self.early_stopping = False
 
         self.model = model
         self.dataset = dataset
@@ -161,6 +171,22 @@ class Training:
             self.log_dir.joinpath("models", "snapshots", f"snapshot_{epoch}.pth"),
         )
 
+    def _check_early_stopping(self, epoch: int, loss: float) -> bool:
+        if not self.early_stopping:
+            return False
+
+        if (self.best_loss - loss) > self.early_stopping_threshold:
+            logger.debug(f"reset early stopping counter ({loss=})")
+            self.best_loss = loss
+            self.early_stopping_counter = 0
+        else:
+            logger.debug("increasing early stopping counter")
+            self.early_stopping_counter += 1
+
+        if self.early_stopping_counter >= self.early_stopping_patience:
+            return True
+        return False
+
     def _clean_snapshots(self) -> None:
         if self.log_dir.joinpath("models", "snapshots").is_dir():
             for file in self.log_dir.joinpath("models", "snapshots").iterdir():
@@ -212,6 +238,10 @@ class Training:
                 "validation": validation_metrics.get(),
             }
 
+            if self._check_early_stopping(epoch, validation_metrics.get_loss()):
+                logger.info("Early Stopping Triggered!")
+                break
+
         self._save_model()
         if store_only_last_model:
             self._clean_snapshots()
@@ -227,6 +257,7 @@ class TrainingBuilder:
         self._optimizer: optim.Optimizer | None = None
         self._device: str | None = None
         self._log_dir: Path | None = None
+        self._early_stopping: tuple[int, float] | None = None
 
     def model(self, model: Sequential) -> Self:
         self._model = model
@@ -258,6 +289,11 @@ class TrainingBuilder:
         logger.debug(f"add tensorboard_log_dir: {log_dir}")
         return self
 
+    def early_stopping(self, patience: int, threshold: float) -> Self:
+        self._early_stopping = (patience, threshold)
+        logger.debug(f"add early_stopping: ({patience=}, {threshold=})")
+        return self
+
     def build(self) -> Training:
         """Build Training instance.
 
@@ -279,7 +315,7 @@ class TrainingBuilder:
         log_dir = self._log_dir or Path("logs/{int(datetime.now().timestamp() * 1000)}")
 
         logger.debug(
-            f"build Training: {self._model=}, {self._dataset=}, {loss_fn=}, {optimizer=}, {device=}, {log_dir=}"
+            f"build Training: {self._model=}, {self._dataset=}, {loss_fn=}, {optimizer=}, {device=}, {log_dir=}, {self._early_stopping=}"
         )
 
         return Training(
@@ -289,4 +325,5 @@ class TrainingBuilder:
             optimiezer=optimizer,
             device=device,
             log_dir=log_dir,
+            early_stopping=self._early_stopping,
         )

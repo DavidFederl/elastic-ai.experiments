@@ -217,6 +217,12 @@ def prepare_training(
     match configuration.get("training.optimizer", ""):
         case "adam":
             builder.optimizer(optim.Adam(model.parameters()))
+    early_stopping_config = configuration.get("training.early_stopping", None)
+    if early_stopping_config is not None:
+        builder.early_stopping(
+            early_stopping_config.get("patience", 0),
+            early_stopping_config.get("threshold", 0.0),
+        )
 
     try:
         return builder.build()
