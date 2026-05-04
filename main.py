@@ -1,5 +1,6 @@
 import logging
 from datetime import datetime
+from functools import partial
 from pathlib import Path
 from types import FunctionType
 from typing import Annotated
@@ -104,9 +105,6 @@ def load_config(logger: logging.Logger, config_file: Path) -> Configuration:
         config: Configuration instance.
     """
     config = Configuration(config_file)
-    if config.configuration is None:
-        logger.error("Configuration not loaded!")
-        exit(1)
     logger.info("Configuration loaded!")
     logger.debug(f"Configuration: {config.get_all()}")
     return config
@@ -133,10 +131,6 @@ def prepare_dataset(logger: logging.Logger, configuration: Configuration) -> Dat
         Dataset: Dataset instance.
     """
     dataset_name = configuration.get("dataset.type", "")
-    if dataset_name == "":
-        logger.error("Dataset type not specified!")
-        exit(1)
-
     dataset = getattr(src.nn.data, dataset_name, None)
     dataset_params = configuration.get("dataset.parameter", {})
 
@@ -163,10 +157,6 @@ def prepare_model(
         Sequential: Sequential model.
     """
     model_name = configuration.get("model.type", "")
-    if model_name == "":
-        logger.error("Model not specified!")
-        exit(1)
-
     model_builder = getattr(src.nn.model, model_name, None)
     model_params = configuration.get("model.parameter", {})
 
@@ -181,6 +171,14 @@ def prepare_model(
     )
 
     return model
+
+
+def _prepare_adam(optimizer_configuration: dict) -> partial[optim.Adam]:
+    adam = partial(
+        optim.Adam,
+        *optimizer_configuration,
+    )
+    return adam
 
 
 def prepare_training(
@@ -210,19 +208,30 @@ def prepare_training(
         .dataset(dataset)
         .log_dir(log_dir.joinpath("training"))
     )
+
     builder.device(configuration.get("training.device", "cpu"))
+
     match configuration.get("training.loss", ""):
         case "cse":
             builder.loss_fn(CrossEntropyLoss())
-    match configuration.get("training.optimizer", ""):
+
+    match configuration.get("training.optimizer.type", ""):
         case "adam":
-            builder.optimizer(optim.Adam(model.parameters()))
+            builder.optimizer(
+                _prepare_adam(
+                    optimizer_configuration=configuration.get(
+                        "training.optimizer.parameter", {}
+                    )
+                )(model.parameters()),
+            )
+
     early_stopping_config = configuration.get("training.early_stopping", None)
     if early_stopping_config is not None:
         builder.early_stopping(
             early_stopping_config.get("patience", 0),
             early_stopping_config.get("threshold", 0.0),
         )
+
     if configuration.get("training.load_best", False):
         builder.load_best()
 

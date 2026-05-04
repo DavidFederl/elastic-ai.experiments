@@ -12,7 +12,8 @@ EXPERIMENT_LOG_FOLDER="logs/$(date +%s)/${CONFIG_FILE%.yaml}"
 uv run main.py \
   --config "$CONFIG_DIR/$CONFIG_FILE" \
   --resume \
-  --log-dir "${EXPERIMENT_LOG_FOLDER}"
+  --log-dir "${EXPERIMENT_LOG_FOLDER}" \
+  --verbose
 
 uv run src/tools/generate_graphs.py \
   --input-dir "${EXPERIMENT_LOG_FOLDER}/training/metrics/validation" \

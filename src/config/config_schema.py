@@ -23,15 +23,22 @@ def get_config_schema() -> Schema:
                     ),
                 ),
                 Optional("parameter"): {
-                    Optional("fixed_point_total_bits"): int,
-                    Optional("fixed_point_fraction_bits"): int,
-                    Optional("delta_bit_width"): int,
+                    Optional("fixed_point_total_bits"): And(int, lambda b: b > 0),
+                    Optional("fixed_point_fraction_bits"): And(int, lambda b: b > 0),
+                    Optional("delta_bit_width"): And(int, lambda b: b > 0),
                 },
             },
             "training": {
                 Optional("seed"): And(int, lambda s: s > 0, lambda s: s < 2**32),
                 Optional("loss"): str,
-                Optional("optimizer"): str,
+                Optional("optimizer"): {
+                    "type": str,
+                    Optional("parameter"): {
+                        Optional("lr"): And(float, lambda l: l > 0),
+                        Optional("decoupled_weight_decay"): bool,
+                        Optional("weight_decay"): And(int, lambda w: w >= 0),
+                    },
+                },
                 Optional("device"): And(str, lambda d: d in ["cpu", "mps", "cuda"]),
                 "epochs": int,
                 "load_best": bool,

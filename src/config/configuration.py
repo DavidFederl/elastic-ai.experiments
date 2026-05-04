@@ -3,7 +3,6 @@ from pathlib import Path
 from typing import TypeVar
 
 import yaml
-from schema import SchemaError
 
 from .config_schema import get_config_schema
 
@@ -29,19 +28,9 @@ class Configuration:
 
     def __init__(self, config: Path):
         self.config_file = config
-        try:
-            with open(config, "r") as cf:
-                self.configuration: dict | None = yaml.safe_load(cf)
-                get_config_schema().validate(self.configuration)
-        except FileNotFoundError as exc:
-            logger.error(f"File not found: {exc}")
-            self.configuration = None
-        except yaml.YAMLError as exc:
-            logger.error(f"Error while parsing configuration file: {exc}")
-            self.configuration = None
-        except SchemaError as exc:
-            logger.error(f"Error while validating configuration file: {exc}")
-            self.configuration = None
+        with open(config, "r") as cf:
+            self.configuration: dict = yaml.safe_load(cf)
+            get_config_schema().validate(self.configuration)
 
     def get(self, key: str, default: T = None) -> T:
         """Get a value from the configuration.
