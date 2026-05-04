@@ -10,6 +10,8 @@ The minimal schema describes the minimal necessary fields for the configuration.
 These fields have to be present at all time!
 
 ```yaml
+# yaml-language-server: $schema=file:/path/to/config_schema.json
+
 dataset:
   type: <str>
 
@@ -18,9 +20,9 @@ model:
 
 training:
   epochs: <unsinged int>
+  store_only_last: <bool>
 
-experiment:
-  - type: <str>
+experiment: []
 ```
 
 ## Extended Schema
@@ -30,6 +32,8 @@ the application supports more configuration options.
 These options however have defaults and are therefore not required to be present.
 
 ```yaml
+# yaml-language-server: $schema=file:/path/to/config_schema.json
+
 dataset:
   type: <str>
   parameter:
@@ -51,11 +55,11 @@ training:
   store_only_last: <bool>
 
 experiment:
-  type: <str>
-  parameter:
-    model_fixed_point_total_bits: <unsinged int>
-    model_fixed_point_fraction_bits: <unsinged int>
-    delta_bit_width: <unsinged int>
+  - type: <str>
+    parameter:
+      model_fixed_point_total_bits: <unsinged int>
+      model_fixed_point_fraction_bits: <unsinged int>
+      delta_bit_width: <unsinged int>
 ```
 
 ## Configuration Fields
@@ -129,4 +133,4 @@ For the experiment configuration the following parameters can be configured:
 ## Troubleshooting
 
 A more detailed information alongside parameter constraints can be found in the
-[config_schema.py](./src/config/config_schema.py) file.
+[config_schema.py](./src/config/config_schema.py) and [config_schema.json](./src/config/config_schema.json) file.

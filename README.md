@@ -53,9 +53,9 @@ model:
 
 training:
   epochs: <epochs>
+  store_only_best: <true/false>
 
-experiment:
-  - type: <expression-name>
+experiment: []
 ```
 
 > [!TIP]

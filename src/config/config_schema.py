@@ -1,3 +1,6 @@
+import json
+from pathlib import Path
+
 from schema import And, Optional, Schema
 
 
@@ -51,3 +54,16 @@ def get_config_schema() -> Schema:
         },
         ignore_extra_keys=True,
     )
+
+
+def generate_schema_file(file: Path):
+    file.touch()
+    with file.open("w") as schema_file:
+        schema = get_config_schema().json_schema(
+            "eai-experiments.federl.ies.uni-due.de"
+        )
+        json.dump(schema, schema_file, indent=2)
+
+
+if __name__ == "__main__":
+    generate_schema_file(Path(__file__).parent.joinpath("config_schema.json"))
