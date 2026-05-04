@@ -1,8 +1,9 @@
 import logging
 
 from elasticai.creator.nn import Sequential
+from elasticai.creator.nn.fixed_point import BatchNormedLinear as LinearEai
 from elasticai.creator.nn.fixed_point import HardTanh as TanhEai
-from elasticai.creator.nn.fixed_point import Linear as LinearEai
+from torch.nn import BatchNorm1d as BatchNorm1dTorch
 from torch.nn import Hardtanh as TanhTorch
 from torch.nn import Linear as LinearTorch
 from torch.nn import Sequential as SequentialTorch
@@ -33,14 +34,19 @@ def linear_v1_torch(
     logger.debug(f"Model: Linear v1 configuration: {in_features=}, {out_features=}")
     return "linear_v1", SequentialTorch(
         LinearTorch(in_features=in_features, out_features=150),
+        BatchNorm1dTorch(150),
         TanhTorch(),
         LinearTorch(in_features=150, out_features=16),
+        BatchNorm1dTorch(16),
         TanhTorch(),
         LinearTorch(in_features=16, out_features=400),
+        BatchNorm1dTorch(400),
         TanhTorch(),
         LinearTorch(in_features=400, out_features=120),
+        BatchNorm1dTorch(120),
         TanhTorch(),
         LinearTorch(in_features=120, out_features=84),
+        BatchNorm1dTorch(84),
         TanhTorch(),
         LinearTorch(in_features=84, out_features=out_features),
     )
