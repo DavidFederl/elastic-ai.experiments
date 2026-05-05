@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Self
 
@@ -338,7 +339,9 @@ class TrainingBuilder:
         loss_fn = self._loss_fn or CrossEntropyLoss()
         optimizer = self._optimizer or optim.Adam(self._model.parameters())
         device = self._device or "cpu"
-        log_dir = self._log_dir or Path("logs/{int(datetime.now().timestamp() * 1000)}")
+        log_dir = self._log_dir or Path(
+            f"logs/{int(datetime.now(timezone.utc).timestamp() * 1000)}"
+        )
 
         logger.debug(
             f"build Training: {self._model=}, {self._dataset=}, {loss_fn=}, {optimizer=}, {device=}, {log_dir=}, {self._early_stopping=}, {self._load_best=}"

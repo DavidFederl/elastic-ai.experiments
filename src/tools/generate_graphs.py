@@ -9,6 +9,8 @@ from typing import Annotated, Dict, List, Optional
 
 import typer
 
+from src.utils import setup_logging
+
 # Import matplotlib for plotting
 try:
     import matplotlib
@@ -23,24 +25,7 @@ except ImportError:
 
 app = typer.Typer()
 
-logger: logging.Logger
-
-
-def setup_logging(verbose: bool) -> logging.Logger:
-    """Setup logging facility.
-
-    Args:
-        verbose (bool): Verbose mode.
-
-    Returns:
-        Logger: Logger instance.
-    """
-    logging.basicConfig(
-        level=logging.DEBUG if verbose else logging.INFO,
-        format="%(asctime)s %(levelname)-8s %(filename)s:%(lineno)s %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
-    return logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 
 
 def load_json_files(directory: Path) -> List[Dict]:
@@ -180,37 +165,10 @@ def plot_comparison(data: List[Dict], output_dir: Path):
                 logger.info(f"Saved accuracy comparison plot to {output_file}")
 
 
-@app.command()
 def generate_graphs(
-    input_dir: Annotated[
-        Path,
-        typer.Option(
-            help="Directory containing JSON metrics files.",
-            exists=True,
-            file_okay=False,
-            dir_okay=True,
-            readable=True,
-        ),
-    ],
-    output_dir: Annotated[
-        Path,
-        typer.Option(
-            help="Output directory for generated graphs.",
-            file_okay=False,
-            dir_okay=True,
-            writable=True,
-        ),
-    ] = Path("graphs"),
-    metrics: Annotated[
-        Optional[List[str]],
-        typer.Option(
-            "--metrics",
-            "-m",
-            help="Specific metrics to plot (e.g., -m loss -m accuracy). "
-            "If not specified, plots all available metrics.",
-        ),
-    ] = None,
-    verbose: Annotated[bool, typer.Option(help="Enable verbose output.")] = False,
+    input_dir: Path,
+    output_dir: Path = Path("graphs"),
+    metrics: List[str] | None = None,
 ):
     """Generate graphs from JSON metrics files.
 
@@ -220,8 +178,6 @@ def generate_graphs(
         metrics: Specific metrics to plot.
         verbose: Enable verbose output.
     """
-    global logger
-    logger = setup_logging(verbose)
 
     if not MATPLOTLIB_AVAILABLE:
         logger.error(
@@ -271,6 +227,49 @@ def generate_graphs(
     logger.info(f"Graphs generated in {output_dir}")
 
 
+@app.command()
+def main(
+    input_dir: Annotated[
+        Path,
+        typer.Option(
+            help="Directory containing JSON metrics files.",
+            exists=True,
+            file_okay=False,
+            dir_okay=True,
+            readable=True,
+        ),
+    ],
+    output_dir: Annotated[
+        Path,
+        typer.Option(
+            help="Output directory for generated graphs.",
+            file_okay=False,
+            dir_okay=True,
+            writable=True,
+        ),
+    ] = Path("graphs"),
+    metrics: Annotated[
+        Optional[List[str]],
+        typer.Option(
+            "--metrics",
+            "-m",
+            help="Specific metrics to plot (e.g., -m loss -m accuracy). "
+            "If not specified, plots all available metrics.",
+        ),
+    ] = None,
+    verbose: Annotated[bool, typer.Option(help="Enable verbose output.")] = False,
+):
+    """Generate graphs from JSON metrics files.
+
+    Args:
+        input_dir: Directory containing JSON metrics files.
+        output_dir: Output directory for generated graphs.
+        metrics: Specific metrics to plot.
+        verbose: Enable verbose output.
+    """
+    setup_logging(output_dir, verbose)
+    generate_graphs(input_dir=input_dir, output_dir=output_dir, metrics=metrics)
+
+
 if __name__ == "__main__":
     app()
-

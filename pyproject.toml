@@ -1,45 +1,39 @@
 [project]
 name = "ies.experiments.deltacomp"
-dynamic = ["version"]
 description = "Run Experiments for delta-compression, based on the elastic-AI.creator"
-authors = [{name = "David P. Federl", email = "david-peter.federl@uni-due.de"}]
 readme = "README.md"
 requires-python = ">=3.12"
+authors = [
+  { name = "David P. Federl", email = "david-peter.federl@uni-due.de" }
+]
 dependencies = [
   "elasticai-creator",
-  "pyyaml>=6.0.3",
-  "schema>=0.7.8",
+  "matplotlib>=3.8.0",
+  "tensorboard>=2.20.0",
   "torch>=2.9.1",
   "torchvision>=0.24.1",
-  "tqdm-loggable>=0.2",
   "tqdm>=4.67.1",
-  "tensorboard>=2.20.0",
+  "tqdm-loggable>=0.2",
   "typer>=0.24.0",
-  "matplotlib>=3.8.0",
 ]
+dynamic = ["version"]
 
 [dependency-groups]
 dev = [
-    "build>=1.3.0",
-    "hatch>=1.14.1",
-    "hatch-vcs>=0.5.0",
-    "ruff>=0.15.7",
-    "ty>=0.0.13",
+  "build>=1.3.0",
+  "hatch>=1.14.1",
+  "hatch-vcs>=0.5.0",
+  "ruff>=0.15.7",
+  "ty>=0.0.13",
 ]
 test = [
-    "coverage>=7.10.6",
-    "pytest>=8.4.2",
-    "pytest-cov>=4.1.0",
+  "coverage>=7.10.6",
+  "pytest>=8.4.2",
+  "pytest-cov>=4.1.0",
 ]
 
-[tool.uv]
-default-groups = [ "dev", "test"]
-
-[tool.uv.sources]
-elasticai-creator = { git = "https://github.com/es-ude/elastic-ai.creator", branch = "main" }
-
 [build-system]
-requires = ["hatchling", "hatch-vcs"]
+requires = ["hatch-vcs", "hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
@@ -50,39 +44,39 @@ source = "vcs"
 
 [tool.ruff]
 include = [
-    "pyproject.toml",
-    "main.py",
-    "src/**/*.py",
-    "tests/**/*.py",
+  "pyproject.toml",
+  "main.py",
+  "src/**/*.py",
+  "tests/**/*.py",
 ]
 exclude = [
-    ".bzr",
-    ".direnv",
-    ".eggs",
-    ".git",
-    ".git-rewrite",
-    ".hg",
-    ".ipynb_checkpoints",
-    ".mypy_cache",
-    ".nox",
-    ".pants.d",
-    ".pyenv",
-    ".pytest_cache",
-    ".pytype",
-    ".ruff_cache",
-    ".svn",
-    ".tox",
-    ".venv",
-    ".vscode",
-    "__pypackages__",
-    "_build",
-    "buck-out",
-    "build",
-    "dist",
-    "node_modules",
-    "site-packages",
-    "venv",
-    ".devenv",
+  ".bzr",
+  ".direnv",
+  ".eggs",
+  ".git",
+  ".git-rewrite",
+  ".hg",
+  ".ipynb_checkpoints",
+  ".mypy_cache",
+  ".nox",
+  ".pants.d",
+  ".pyenv",
+  ".pytest_cache",
+  ".pytype",
+  ".ruff_cache",
+  ".svn",
+  ".tox",
+  ".venv",
+  ".vscode",
+  "__pypackages__",
+  "_build",
+  "buck-out",
+  "build",
+  "dist",
+  "node_modules",
+  "site-packages",
+  "venv",
+  ".devenv",
 ]
 # Same as Black.
 line-length = 88
@@ -92,10 +86,7 @@ target-version = "py312"
 [tool.ruff.lint]
 # Enable Pyflakes (`F`) and a subset of the pycodestyle (`E`)  codes by default.
 select = ["E4", "E7", "E9", "F", "I"]
-ignore = [
-    "D101",
-    "D102",
-    "E741" ]
+ignore = ["D101", "D102", "E741"]
 
 # Allow fix for all enabled rules (when `--fix`) is provided.
 fixable = ["ALL"]
@@ -110,6 +101,5 @@ indent-style = "space"
 skip-magic-trailing-comma = false
 line-ending = "auto"
 
-[tool.pytest.ini_options]
-filterwarnings = ["ignore::UserWarning:elasticai.creator.testing.cocotb_runner"]
-
+[tool.uv.sources]
+elasticai-creator = { git = "https://github.com/es-ude/elastic-ai.creator", branch = "main" }

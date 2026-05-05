@@ -3,23 +3,84 @@ import json
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
+import typer
 from elasticai.creator.arithmetic import FxpArithmetic, FxpParams
-from torch import Tensor, cat, no_grad, where
+from torch import Tensor, cat, no_grad, optim, where
 from torch.nn.modules.loss import CrossEntropyLoss, _Loss
 
 from src.nn.data import Dataset
+from src.nn.data.fashionmnist import FashionMNIST
 from src.nn.delta import compress_consecutive, inflate_consecutive
 from src.nn.model import Sequential, load_from_json, save_as_json
+from src.nn.model.linear import linear_v1_eai
 from src.nn.training import Metrics
-
-from .experiment import Experiment
+from src.nn.training.train import TrainingBuilder
+from src.tools.generate_graphs import generate_graphs
+from src.utils import setup_logging
 
 logger = logging.getLogger(__name__)
+app = typer.Typer()
 
 
-class DeltaExperiment01(Experiment):
+@app.command()
+def main(
+    log_dir: Annotated[Path, typer.Option(help="Log directory.")] = Path(
+        f"logs/{int(datetime.now(timezone.utc).timestamp() * 10000)}"
+    ),
+    verbose: Annotated[
+        bool, typer.Option(help="Enable verbose output.", is_flag=True)
+    ] = False,
+    epochs: Annotated[int, typer.Option(help="Epochs for Training.", min=1)] = 100,
+    fixed_point_total_bits: Annotated[int, typer.Option(min=1)] = 16,
+    fixed_point_fraction_bits: Annotated[int, typer.Option(min=1)] = 8,
+):
+    setup_logging(log_dir, verbose)
+
+    dataset: Dataset = FashionMNIST()
+
+    _, model = linear_v1_eai(
+        in_features=dataset.element_shape.numel(),
+        out_features=len(dataset.classes),
+        fixed_point_total_bits=fixed_point_total_bits,
+        fixed_point_fraction_bits=fixed_point_fraction_bits,
+    )
+
+    optimizer = optim.Adam(
+        params=model.parameters(),
+        lr=0.001,
+        weight_decay=0,
+        decoupled_weight_decay=True,
+    )
+    loss_fn = CrossEntropyLoss()
+    training = (
+        TrainingBuilder()
+        .dataset(dataset)
+        .model(model)
+        .device("cpu")
+        .optimizer(optimizer)
+        .loss_fn(loss_fn)
+        .log_dir(log_dir)
+        .build()
+    )
+    training.train(epochs=epochs, skip=True)
+
+    generate_graphs(
+        input_dir=log_dir.joinpath("metrics", "validation"),
+        output_dir=log_dir.joinpath("graphs", "validation"),
+    )
+
+    experiment = DeltaExperiment01(
+        log_dir=log_dir,
+        model_fixed_point_total_bits=fixed_point_total_bits,
+        model_fixed_point_fraction_bits=fixed_point_fraction_bits,
+        delta_bit_width=10,
+    )
+    experiment.run(model, dataset)
+
+
+class DeltaExperiment01:
     ORIGINAL_STATE_DICT_FILE = "model_original.json"
     INT_STATE_DICT_FILE = "model_int.json"
     DELTA_INFLATED_STATE_DICT_FILE = "model_delta_inflated.json"
@@ -43,9 +104,7 @@ class DeltaExperiment01(Experiment):
 
         self.delta_bit_width: int = delta_bit_width
 
-        self.log_dir: Path = log_dir.joinpath(
-            f"{datetime.now(timezone.utc).isoformat()}"
-        )
+        self.log_dir: Path = log_dir.joinpath(self.__class__.__name__)
         self.log_dir.mkdir(exist_ok=True, parents=True)
         with open(self.log_dir.joinpath("meta.txt"), "w") as meta_file:
             meta_file.write(f"EXPERIMEMNT: {self.__class__.__name__}\n")
@@ -239,3 +298,7 @@ class DeltaExperiment01(Experiment):
             json.dump(metrics_information_loss, file, indent=4)
 
         logger.info(f"FINISHED {self.__class__.__name__}")
+
+
+if __name__ == "__main__":
+    app()

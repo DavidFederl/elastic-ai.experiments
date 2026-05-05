@@ -11,6 +11,7 @@
     venv.enable = true;
     uv.enable = true;
     uv.sync.enable = true;
+    uv.sync.allGroups = true;
   };
 
   scripts.run_experiments = {
