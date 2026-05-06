@@ -6,7 +6,7 @@ from typing import Self
 from torch import load, no_grad, optim, save
 from torch.nn import CrossEntropyLoss
 from torch.nn.modules.loss import _Loss
-from torch.utils.data import Dataset
+from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from tqdm_loggable.auto import tqdm
 
@@ -21,7 +21,9 @@ class Training:
     def __init__(
         self,
         model: Sequential,
-        dataset: Dataset,
+        classes: list,
+        training_dataloader: DataLoader,
+        validation_dataloader: DataLoader,
         loss_fn: _Loss,
         optimiezer: optim.Optimizer,
         device: str,
@@ -44,7 +46,9 @@ class Training:
             self.early_stopping = False
 
         self.model = model
-        self.dataset = dataset
+        self.classes = classes
+        self.training_dataloader = training_dataloader
+        self.validation_dataloader = validation_dataloader
         self.loss_fn = loss_fn
         self.optimizer = optimiezer
         self.device = device
@@ -85,13 +89,14 @@ class Training:
 
     def _train_epoch(self, epoch: int) -> Metrics:
         training_metrics = Metrics(
-            loss_fn=self.loss_fn, num_classes=len(self.dataset.classes)
+            loss_fn=self.loss_fn,
+            num_classes=len(self.classes),
         )
         training_metrics.reset()
 
         for inputs, labels in tqdm(
-            self.dataset.training_loader,
-            total=len(self.dataset.training_loader),
+            self.training_dataloader,
+            total=len(self.training_dataloader),
             desc=f"Training Epoch {epoch + 1} -> Progress",
         ):
             inputs = inputs.to(self.device)
@@ -111,12 +116,12 @@ class Training:
 
     def _validate_epoch(self) -> Metrics:
         validation_metrics = Metrics(
-            loss_fn=self.loss_fn, num_classes=len(self.dataset.classes)
+            loss_fn=self.loss_fn, num_classes=len(self.classes)
         )
         validation_metrics.reset()
 
         with no_grad():
-            for inputs, labels in self.dataset.validation_loader:
+            for inputs, labels in self.validation_dataloader:
                 inputs = inputs.to(self.device)
                 labels = labels.to(self.device)
 
@@ -273,7 +278,9 @@ class Training:
 class TrainingBuilder:
     def __init__(self):
         self._model: Sequential | None = None
-        self._dataset: Dataset | None = None
+        self._classes: list | None = None
+        self._trainngin_dl: DataLoader | None = None
+        self._validation_dl: DataLoader | None = None
         self._loss_fn: _Loss | None = None
         self._optimizer: optim.Optimizer | None = None
         self._device: str | None = None
@@ -286,9 +293,12 @@ class TrainingBuilder:
         logger.debug(f"add model: {model}")
         return self
 
-    def dataset(self, dataset: Dataset) -> Self:
-        self._dataset = dataset
-        logger.debug(f"add dataset: {dataset}")
+    def dataset(
+        self, classes: list, training_dl: DataLoader, validation_dl: DataLoader
+    ) -> Self:
+        self._classes = classes
+        self._trainngin_dl = training_dl
+        self.validation_dl = validation_dl
         return self
 
     def loss_fn(self, loss_fn: _Loss) -> Self:
@@ -333,8 +343,16 @@ class TrainingBuilder:
         """
         if self._model is None:
             raise ValueError("TrainingBuilder missing required Model!")
-        if self._dataset is None:
+        if self._classes is None:
             raise ValueError("TrainingBuilder missing required Dataset!")
+        if self._trainngin_dl is None:
+            raise ValueError(
+                "TrainingBuilder missing required Dataloader for training!"
+            )
+        if self._validation_dl is None:
+            raise ValueError(
+                "TrainingBuilder missing required Dataloader for validation!"
+            )
 
         loss_fn = self._loss_fn or CrossEntropyLoss()
         optimizer = self._optimizer or optim.Adam(self._model.parameters())
@@ -344,12 +362,14 @@ class TrainingBuilder:
         )
 
         logger.debug(
-            f"build Training: {self._model=}, {self._dataset=}, {loss_fn=}, {optimizer=}, {device=}, {log_dir=}, {self._early_stopping=}, {self._load_best=}"
+            f"build Training: {self._model=}, {self._classes=}, {loss_fn=}, {optimizer=}, {device=}, {log_dir=}, {self._early_stopping=}, {self._load_best=}"
         )
 
         return Training(
             model=self._model,
-            dataset=self._dataset,
+            classes=self._classes,
+            training_dataloader=self._trainngin_dl,
+            validation_dataloader=self._validation_dl,
             loss_fn=loss_fn,
             optimiezer=optimizer,
             device=device,

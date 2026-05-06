@@ -7,21 +7,13 @@ import re
 from pathlib import Path
 from typing import Annotated, Dict, List, Optional
 
+import matplotlib
+import matplotlib.pyplot as plt
 import typer
 
 from src.utils import setup_logging
 
-# Import matplotlib for plotting
-try:
-    import matplotlib
-
-    matplotlib.use("Agg")  # Use non-interactive backend
-    import matplotlib.pyplot as plt
-
-    MATPLOTLIB_AVAILABLE = True
-except ImportError:
-    MATPLOTLIB_AVAILABLE = False
-    plt = None
+matplotlib.use("Agg")  # Use non-interactive backend
 
 app = typer.Typer()
 
@@ -80,10 +72,6 @@ def plot_metrics(data: List[Dict], output_dir: Path, metric_name: str = "loss"):
         output_dir (Path): Output directory for plots.
         metric_name (str): Name of metric to plot (e.g., 'loss', 'accuracy').
     """
-    if not MATPLOTLIB_AVAILABLE:
-        logger.error("Matplotlib is not available. Cannot generate plots.")
-        return
-
     output_dir.mkdir(exist_ok=True, parents=True)
 
     # Extract data for plotting
@@ -122,10 +110,6 @@ def plot_comparison(data: List[Dict], output_dir: Path):
         data (List[Dict]): List of experiment metrics data.
         output_dir (Path): Output directory for plots.
     """
-    if not MATPLOTLIB_AVAILABLE:
-        logger.error("Matplotlib is not available. Cannot generate plots.")
-        return
-
     output_dir.mkdir(exist_ok=True, parents=True)
 
     # This is for experiment metrics that have "original" and "simulated" sections
@@ -178,14 +162,6 @@ def generate_graphs(
         metrics: Specific metrics to plot.
         verbose: Enable verbose output.
     """
-
-    if not MATPLOTLIB_AVAILABLE:
-        logger.error(
-            "Matplotlib is not installed. Please install it to generate graphs."
-        )
-        logger.error("You can install it with: pip install matplotlib")
-        return
-
     logger.info(f"Loading JSON files from {input_dir}")
     data = load_json_files(input_dir)
 

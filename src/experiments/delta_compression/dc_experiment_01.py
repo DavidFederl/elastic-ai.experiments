@@ -9,9 +9,13 @@ import typer
 from elasticai.creator.arithmetic import FxpArithmetic, FxpParams
 from torch import Tensor, cat, no_grad, optim, where
 from torch.nn.modules.loss import CrossEntropyLoss, _Loss
+from torch.utils.data import DataLoader
 
-from src.nn.data import Dataset
-from src.nn.data.fashionmnist import FashionMNIST
+from src.nn.data import (
+    fashionmnist_trainingset_flattened,
+    fashionmnist_validationset_flattened,
+    get_dataloader,
+)
 from src.nn.delta import compress_consecutive, inflate_consecutive
 from src.nn.model import Sequential, load_from_json, save_as_json
 from src.nn.model.linear import linear_v1_eai
@@ -38,11 +42,15 @@ def main(
 ):
     setup_logging(log_dir, verbose)
 
-    dataset: Dataset = FashionMNIST()
+    training_ds = fashionmnist_trainingset_flattened()
+    training_dl = get_dataloader(training_ds)
+
+    validation_ds = fashionmnist_validationset_flattened()
+    validation_dl = get_dataloader(validation_ds)
 
     _, model = linear_v1_eai(
-        in_features=dataset.element_shape.numel(),
-        out_features=len(dataset.classes),
+        in_features=training_ds[0][0].element_shape.numel(),
+        out_features=len(training_ds.classes),
         fixed_point_total_bits=fixed_point_total_bits,
         fixed_point_fraction_bits=fixed_point_fraction_bits,
     )
@@ -56,7 +64,7 @@ def main(
     loss_fn = CrossEntropyLoss()
     training = (
         TrainingBuilder()
-        .dataset(dataset)
+        .dataset(training_ds.classes, training_dl, validation_dl)
         .model(model)
         .device("cpu")
         .optimizer(optimizer)
@@ -77,7 +85,7 @@ def main(
         model_fixed_point_fraction_bits=fixed_point_fraction_bits,
         delta_bit_width=10,
     )
-    experiment.run(model, dataset)
+    experiment.run(model, validation_dl, validation_ds.classes)
 
 
 class DeltaExperiment01:
@@ -170,7 +178,7 @@ class DeltaExperiment01:
         save_as_json(state_dict, self.log_dir.joinpath(self.SIMULATED_STATE_DICT_FILE))
         return state_dict
 
-    def _simulate_compression(self, model: Sequential, dataset: Dataset) -> None:
+    def _simulate_compression(self, model: Sequential) -> None:
         model_state_dict: dict[str, Tensor] = self._get_original_model_state(model)
         model_state_dict = self._convert_weights_to_integer(model_state_dict)
         model_state_dict = self._apply_delta_compression(model_state_dict)
@@ -249,22 +257,16 @@ class DeltaExperiment01:
     def _perform_model_evaluation(
         self,
         model: Sequential,
-        dataset: Dataset,
+        classes: list,
+        dataloader: DataLoader,
         loss_fn: _Loss,
         device: str,
     ) -> dict[str, int | float | list[float]]:
-        validation_metrics = Metrics(loss_fn=loss_fn, num_classes=len(dataset.classes))
+        validation_metrics = Metrics(loss_fn=loss_fn, num_classes=len(classes))
         validation_metrics.reset()
 
         with no_grad():
-            for inputs, labels in dataset.training_loader:
-                inputs = inputs.to(device)
-                labels = labels.to(device)
-
-                outputs = model(inputs)
-
-                validation_metrics.add(labels=labels, outputs=outputs)
-            for inputs, labels in dataset.validation_loader:
+            for inputs, labels in dataloader:
                 inputs = inputs.to(device)
                 labels = labels.to(device)
 
@@ -274,23 +276,25 @@ class DeltaExperiment01:
 
         return validation_metrics.get()  # type: ignore
 
-    def run(self, model: Sequential, dataset: Dataset) -> None:
+    def run(self, model: Sequential, dataloader: DataLoader, classes: list) -> None:
         logger.info(f"START {self.__class__.__name__}")
 
         model_copy: Sequential = copy.deepcopy(model)
-        self._simulate_compression(model_copy, dataset)
+        self._simulate_compression(model_copy)
 
         metrics_information_loss: dict[str, Any] = {}
         metrics_information_loss.update(self._analyze_quntized_weights())
         metrics_information_loss.update(self._analyze_weights())
 
         metrics_information_loss["original"]["metrics"] = (
-            self._perform_model_evaluation(model, dataset, self.loss_fn, self.device)
+            self._perform_model_evaluation(
+                model, classes, dataloader, self.loss_fn, self.device
+            )
         )
 
         metrics_information_loss["simulated"]["metrics"] = (
             self._perform_model_evaluation(
-                model_copy, dataset, self.loss_fn, self.device
+                model_copy, classes, dataloader, self.loss_fn, self.device
             )
         )
 

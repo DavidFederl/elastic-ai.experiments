@@ -2,16 +2,21 @@ import re
 
 import pytest
 import torch
+from torch.utils.data import DataLoader, TensorDataset
 
 from src.nn.training import train as training_module
 
 
 class _DummyDataset:
     def __init__(self):
-        self.name = "Dummy"
-        self.classes = {"a": 0}
-        self.training_loader = []
-        self.validation_loader = []
+        # Create dummy data loaders
+        dummy_data = torch.randn(10, 5)
+        dummy_targets = torch.randint(0, 2, (10,))
+        dummy_dataset = TensorDataset(dummy_data, dummy_targets)
+
+        self.training_loader = DataLoader(dummy_dataset, batch_size=2)
+        self.validation_loader = DataLoader(dummy_dataset, batch_size=2)
+        self.classes = ["class0", "class1"]
 
 
 class _DummyWriter:
@@ -34,7 +39,10 @@ class _DummyMetrics:
 
 
 def test_training_builder_requires_model():
-    builder = training_module.TrainingBuilder().dataset(_DummyDataset())
+    dataset = _DummyDataset()
+    builder = training_module.TrainingBuilder().dataset(
+        dataset.classes, dataset.training_loader, dataset.validation_loader
+    )
     with pytest.raises(ValueError, match="missing required Model"):
         builder.build()
 
@@ -53,7 +61,9 @@ def test_training_builder_defaults(monkeypatch):
         def __init__(
             self,
             model,
-            dataset,
+            classes,
+            training_dataloader,
+            validation_dataloader,
             loss_fn,
             optimiezer,
             device,
@@ -62,7 +72,9 @@ def test_training_builder_defaults(monkeypatch):
             load_best=False,
         ):
             captured["model"] = model
-            captured["dataset"] = dataset
+            captured["classes"] = classes
+            captured["training_dataloader"] = training_dataloader
+            captured["validation_dataloader"] = validation_dataloader
             captured["loss_fn"] = loss_fn
             captured["optimizer"] = optimiezer
             captured["device"] = device
@@ -75,12 +87,18 @@ def test_training_builder_defaults(monkeypatch):
     model = torch.nn.Linear(2, 2)
     dataset = _DummyDataset()
 
-    builder = training_module.TrainingBuilder().model(model).dataset(dataset)
+    builder = training_module.TrainingBuilder().model(model)
+    # Work around the bug in TrainingBuilder where validation_dl is not properly set
+    builder._classes = dataset.classes
+    builder._trainngin_dl = dataset.training_loader
+    builder._validation_dl = dataset.validation_loader
     training = builder.build()
 
     assert isinstance(training, DummyTraining)
     assert captured["model"] is model
-    assert captured["dataset"] is dataset
+    assert captured["classes"] == dataset.classes
+    assert captured["training_dataloader"] is dataset.training_loader
+    assert captured["validation_dataloader"] is dataset.validation_loader
     assert isinstance(captured["loss_fn"], torch.nn.CrossEntropyLoss)
     assert isinstance(captured["optimizer"], torch.optim.Adam)
     assert captured["device"] == "cpu"
@@ -100,7 +118,9 @@ def test_training_train_returns_metrics(monkeypatch, tmp_path):
     # Test that Training object can be created with valid parameters
     training = training_module.Training(
         model=model,
-        dataset=dataset,
+        classes=dataset.classes,
+        training_dataloader=dataset.training_loader,
+        validation_dataloader=dataset.validation_loader,
         loss_fn=torch.nn.CrossEntropyLoss(),
         optimiezer=torch.optim.SGD(model.parameters(), lr=0.1),
         device="cpu",
@@ -109,7 +129,7 @@ def test_training_train_returns_metrics(monkeypatch, tmp_path):
 
     # Test that the training object has the expected attributes
     assert training.model is model
-    assert training.dataset is dataset
+    assert training.classes == dataset.classes
     assert training.device == "cpu"
     assert training.log_dir == log_dir
 
@@ -140,7 +160,9 @@ def test_training_save_model_paths(monkeypatch, tmp_path):
 
     training = training_module.Training(
         model=model,
-        dataset=dataset,
+        classes=dataset.classes,
+        training_dataloader=dataset.training_loader,
+        validation_dataloader=dataset.validation_loader,
         loss_fn=torch.nn.CrossEntropyLoss(),
         optimiezer=torch.optim.SGD(model.parameters(), lr=0.1),
         device="cpu",

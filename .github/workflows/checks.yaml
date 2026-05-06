@@ -8,7 +8,7 @@ on:
 jobs:
   check_commit_messages:
     runs-on: ubuntu-latest
-    name: check source-code formatting
+    name: check conventinal commit compliance
     steps:
       - uses: actions/checkout@v6
         with:
@@ -22,7 +22,7 @@ jobs:
 
   check_code_style:
     runs-on: ubuntu-latest
-    name: check source-code formatting
+    name: check source code formatting
     steps:
       - uses: actions/checkout@v6
         with:
@@ -36,7 +36,7 @@ jobs:
 
   check_python_unittets:
     runs-on: ubuntu-latest
-    name: check python unit-tests
+    name: check unit-tests
     steps:
       - uses: actions/checkout@v6
         with:
