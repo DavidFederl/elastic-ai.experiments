@@ -8,53 +8,42 @@ on:
 jobs:
   check_commit_messages:
     runs-on: ubuntu-latest
-    name: check conventional commit compliance
+    name: check source-code formatting
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
           # pick the pr HEAD instead of the merge commit
           ref: ${{ github.event.pull_request.head.sha }}
+      - name: Prepare Devenv environment
+        uses: ./.github/actions/prepare-devenv
+      - name: Run Linter
+        run: devenv tasks run check:conventional-commit
 
-      - name: conventional commit check
-        uses: cocogitto/cocogitto-action@v4
-        with:
-          command: check
-          args: --from-latest-tag --ignore-merge-commits
-
-  check_python_formatting:
+  check_code_style:
     runs-on: ubuntu-latest
-    name: check python formatting
+    name: check source-code formatting
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
           # pick the pr HEAD instead of the merge commit
           ref: ${{ github.event.pull_request.head.sha }}
-
-      - name: check python formatting
-        uses: astral-sh/ruff-action@v3
-        with:
-          version-file: "pyproject.toml"
+      - name: Prepare Devenv environment
+        uses: ./.github/actions/prepare-devenv
+      - name: Run Linter
+        run: devenv tasks run check:code-lint
 
   check_python_unittets:
     runs-on: ubuntu-latest
     name: check python unit-tests
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
           # pick the pr HEAD instead of the merge commit
           ref: ${{ github.event.pull_request.head.sha }}
-
-      - uses: cachix/install-nix-action@v31
-      - uses: cachix/cachix-action@v16
-        with:
-          name: devenv
-      - name: Install devenv.sh
-        run: nix profile add nixpkgs#devenv
-      # - name: Build the devenv shell and run any pre-commit hooks
-      #   run: devenv test
-
+      - name: Prepare Devenv environment
+        uses: ./.github/actions/prepare-devenv
       - name: Run Tests
-        run: devenv tasks run tests
+        run: devenv tasks run check:unit-tests
