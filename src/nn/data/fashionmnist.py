@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 class FashionMNIST(Dataset):
     def __init__(
         self,
-        storage_path: str = "data",
+        storage_path: str = "datasets",
         transform: transforms.Compose | None = None,
         batch_size: int = 512,
     ) -> None:
@@ -24,10 +24,10 @@ class FashionMNIST(Dataset):
             Element size is 1x28x28 (grayscale images of 28x28 pixels).
 
         Args:
-            storage_path (str): Path to store/load the dataset. (Default: "data")
+            storage_path (str): Path to store/load the dataset. (Default: "datasets")
             transform (transforms.Compose | None): Transformations to apply to the data.
                                                    (Default: None)
-            seed(int|None): seed for manual seeding! (Default: None)
+            batch_size (int): Batch size for dataloader
 
         Returns:
             None
