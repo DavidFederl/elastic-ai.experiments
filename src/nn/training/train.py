@@ -6,10 +6,10 @@ from typing import Self
 from torch import load, no_grad, optim, save
 from torch.nn import CrossEntropyLoss
 from torch.nn.modules.loss import _Loss
+from torch.utils.data import Dataset
 from torch.utils.tensorboard import SummaryWriter
 from tqdm_loggable.auto import tqdm
 
-from src.nn.data import Dataset
 from src.nn.model import Sequential
 
 from .metrics import Metrics, MetricWriter

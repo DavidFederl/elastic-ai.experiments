@@ -70,7 +70,7 @@ def test_metric_writer_writes_json(tmp_path):
     outputs = torch.tensor([[1.0, 0.0], [0.0, 1.0]])
     metrics.add(labels=labels, outputs=outputs)
 
-    writer = MetricWriter(str(tmp_path))
+    writer = MetricWriter(tmp_path)
     writer.write(metrics, write_meta=False, filename="metrics.json")
 
     data = json.loads((tmp_path / "metrics.json").read_text(encoding="utf-8"))
@@ -82,6 +82,8 @@ def test_metric_writer_validates_directory(tmp_path):
     with pytest.raises(ValueError, match="storage_directory cannot be None"):
         MetricWriter(None)
 
+    # Test that missing directories are created successfully with parents=True
     missing_dir = tmp_path / "missing" / "child"
-    with pytest.raises(ValueError, match="parent directories must exist"):
-        MetricWriter(str(missing_dir))
+    writer = MetricWriter(missing_dir)
+    assert missing_dir.exists()
+    assert missing_dir.is_dir()

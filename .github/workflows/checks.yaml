@@ -36,3 +36,25 @@ jobs:
         uses: astral-sh/ruff-action@v3
         with:
           version-file: "pyproject.toml"
+
+  check_python_unittets:
+    runs-on: ubuntu-latest
+    name: check python unit-tests
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          # pick the pr HEAD instead of the merge commit
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - uses: cachix/install-nix-action@v31
+      - uses: cachix/cachix-action@v16
+        with:
+          name: devenv
+      - name: Install devenv.sh
+        run: nix profile add nixpkgs#devenv
+      # - name: Build the devenv shell and run any pre-commit hooks
+      #   run: devenv test
+
+      - name: Run Tests
+        run: devenv tasks run tests

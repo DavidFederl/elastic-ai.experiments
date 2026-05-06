@@ -22,5 +22,13 @@
     '';
   };
 
+  tasks ={
+    "tests:unit-tests" = {
+       exec = ''
+         uv run pytest
+       '';
+    };
+  };
+
   # See full reference at https://devenv.sh/reference/options/
 }

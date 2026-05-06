@@ -5,7 +5,7 @@ from typing import Callable
 import torch
 from numpy import load as np_load
 from torch import as_tensor
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import Dataset
 from torchvision import transforms
 
 logger = logging.getLogger(__name__)
@@ -167,15 +167,6 @@ def smartable_validationset_flattened() -> SmarTable:
     return SmarTable(root="datasets", train=False, transform=transformations)
 
 
-def smartable_dataloader(
-    dataset: SmarTable, batch_size: int = 512, shuffle: bool = False
-) -> DataLoader:
-    logger.info(
-        f"Dataloader from {dataset.__class__.__name__} with {batch_size} samples per batch ({shuffle=})"
-    )
-    return DataLoader(dataset=dataset, batch_size=batch_size, shuffle=shuffle)
-
-
 if __name__ == "__main__":
     logging.basicConfig(
         level=logging.DEBUG,  # Set log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
@@ -183,6 +174,4 @@ if __name__ == "__main__":
         datefmt="%Y-%m-%d %H:%M:%S",  # Date format
     )
     ds = smartable_trainingset_flattened()
-    dl = smartable_dataloader(ds)
-    element = next(iter(dl))
-    print(f"data={element[0][0]} ({element[0][0].shape})\ntarget={element[1][0]}")
+    print(f"data={ds[0][0]} ({ds[0][0].shape})\ntarget={ds[1][0]}")

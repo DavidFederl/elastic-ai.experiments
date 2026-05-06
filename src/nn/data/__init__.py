@@ -1,17 +1,21 @@
-from .dataset import Dataset
-from .fashionmnist import FashionMNIST
+from .fashionmnist import (
+    FashionMNIST,
+    fashionmnist_trainingset_flattened,
+    fashionmnist_validationset_flattened,
+)
 from .smartable import (
     SmarTable,
-    smartable_dataloader,
     smartable_trainingset_flattened,
     smartable_validationset_flattened,
 )
+from .utils import get_dataloader
 
 __all__ = [
-    "Dataset",
     "FashionMNIST",
+    "fashionmnist_trainingset_flattened",
+    "fashionmnist_validationset_flattened",
     "SmarTable",
     "smartable_trainingset_flattened",
     "smartable_validationset_flattened",
-    "smartable_dataloader",
+    "get_dataloader",
 ]
