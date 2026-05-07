@@ -8,7 +8,7 @@ from torch.nn import Hardtanh as TanhTorch
 from torch.nn import Linear as LinearTorch
 from torch.nn import Sequential as SequentialTorch
 
-from creator_plugins.delta_compression import (
+from eai_plugins.delta_compression import (
     Linear as LinearDelta,
 )
 

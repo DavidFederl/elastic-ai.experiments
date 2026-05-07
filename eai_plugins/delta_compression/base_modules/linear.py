@@ -4,7 +4,7 @@ import torch
 from elasticai.creator.nn.fixed_point import Linear as LinearEai
 from elasticai.creator.nn.fixed_point.linear.design import LinearDesign
 
-from creator_plugins.delta_compression.delta.consecutive import (
+from ..delta.consecutive import (
     ConsecutiveDeltaCompression,
 )
 
