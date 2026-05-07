@@ -8,7 +8,7 @@
 
   languages.python = {
     enable = true;
-    version = "3.12";
+    version = "3.13";
     venv.enable = true;
     uv.enable = true;
     uv.sync.enable = true;
