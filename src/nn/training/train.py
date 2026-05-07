@@ -298,7 +298,7 @@ class TrainingBuilder:
     ) -> Self:
         self._classes = classes
         self._trainngin_dl = training_dl
-        self.validation_dl = validation_dl
+        self._validation_dl = validation_dl
         return self
 
     def loss_fn(self, loss_fn: _Loss) -> Self:
