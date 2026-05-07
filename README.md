@@ -16,50 +16,29 @@ utilizing astral-uv for Python package management.
 
 ## Run Experiment
 
-The experiment runner provides a CLI user interfaces based on [click](https://click.palletsprojects.com/en/stable/).
+Experiments can be found in the [experiments folder](./experiments/).
+Each file has different inputs that can be determined via the `--help` flag
+
+**EXAMPLE:**
 
 ```bash
-$ uv run main.py --help
+$ uv run src/experiments/delta_compression/dc_experiment_01.py --help
 
- Usage: main.py [OPTIONS]
+ Usage: dc_experiment_01.py [OPTIONS]
 
-╭─ Options ────────────────────────────────────────────────────────────────────────────────────╮
-│ *  --config                     PATH  Configuration file defining the experiment. [required] │
-│    --resume     --no-resume           Resume after aborted execution. [default: resume]      │
-│    --log-dir                    PATH  Log directory. [default: logs/1773433149541]           │
-│    --verbose    --no-verbose          Enable verbose output. [default: no-verbose]           │
-│    --help                             Show this message and exit.                            │
-╰──────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─ Options ──────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ --log-dir                                      PATH                  Log directory. [default: logs/17781732390079]     │
+│ --verbose                      --no-verbose                          Enable verbose output. [default: no-verbose]      │
+│ --epochs                                       INTEGER RANGE [x>=1]  Epochs for Training. [default: 100]               │
+│ --fixed-point-total-bits                       INTEGER RANGE [x>=1]  [default: 16]                                     │
+│ --fixed-point-fraction-bits                    INTEGER RANGE [x>=1]  [default: 8]                                      │
+│ --install-completion                                                 Install completion for the current shell.         │
+│ --show-completion                                                    Show completion for the current shell,            │
+│                                                                       to copy it or customize the installation.        │
+│ --help                                                               Show this message and exit.                       │
+╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
 ```
-
-### Configuration File
-
-The application expects a configuration based on the YAML notation.
-This configuration file is used to define the dataset, the model, and the
-experiment to perform.
-
-**Minimal Schema:**
-
-> [!WARNING]
-> Minimal required fields.
-> If these fields are not present the experiment execution will fail!
-
-```yaml
-dataset:
-  type: <dataset-name>
-
-model:
-  type: <model-name>
-
-training:
-  epochs: <epochs>
-  store_only_best: <true/false>
-
-experiment: []
-```
-
-> [!TIP]
-> A more detailed information can be found in [configuration README](./src/config/README.md)!
 
 ## Contributing
 
