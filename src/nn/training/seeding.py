@@ -7,7 +7,7 @@ import torch
 logger = logging.getLogger(__name__)
 
 
-def set_inital_seed(seed: int, make_determenistic: bool) -> None:
+def set_initial_seed(seed: int, make_determenistic: bool) -> None:
     """Set the initial seed for the experiment.
 
     sets all seeding bases and decides if cuda should only use determensitic modules
