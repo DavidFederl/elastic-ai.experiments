@@ -9,6 +9,7 @@ __all__ = [
     "linear_v1_eai",
     "linear_v1_torch",
     "linear_v1_delta",
+    "conv_torch_gupta",
     "load_from_json",
     "save_as_json",
 ]
