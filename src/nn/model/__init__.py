@@ -1,5 +1,6 @@
 from elasticai.creator.nn import Sequential
 
+from .conv import conv_torch_gupta
 from .linear import linear_v1_delta, linear_v1_eai, linear_v1_torch
 from .serialize import load_from_json, save_as_json
 

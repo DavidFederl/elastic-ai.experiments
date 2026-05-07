@@ -16,8 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 def linear_v1_torch(
-    in_features: int,
-    out_features: int,
+    in_features: int, out_features: int, bias: bool = True
 ) -> tuple[str, SequentialTorch]:
     """Model consisting of a linear layer followed by a tanh layer.
 
@@ -33,19 +32,19 @@ def linear_v1_torch(
     logger.info("Model: Linear v1 (PyTorch)")
     logger.debug(f"Model: Linear v1 configuration: {in_features=}, {out_features=}")
     return "linear_v1", SequentialTorch(
-        LinearTorch(in_features=in_features, out_features=150),
+        LinearTorch(in_features=in_features, out_features=150, bias=bias),
         BatchNorm1dTorch(150),
         TanhTorch(),
-        LinearTorch(in_features=150, out_features=16),
+        LinearTorch(in_features=150, out_features=16, bias=bias),
         BatchNorm1dTorch(16),
         TanhTorch(),
-        LinearTorch(in_features=16, out_features=400),
+        LinearTorch(in_features=16, out_features=400, bias=bias),
         BatchNorm1dTorch(400),
         TanhTorch(),
-        LinearTorch(in_features=400, out_features=120),
+        LinearTorch(in_features=400, out_features=120, bias=bias),
         BatchNorm1dTorch(120),
         TanhTorch(),
-        LinearTorch(in_features=120, out_features=84),
+        LinearTorch(in_features=120, out_features=84, bias=bias),
         BatchNorm1dTorch(84),
         TanhTorch(),
         LinearTorch(in_features=84, out_features=out_features),
