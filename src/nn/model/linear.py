@@ -32,7 +32,7 @@ def linear_v1_torch(
     """
     logger.info("Model: Linear v1 (PyTorch)")
     logger.debug(f"Model: Linear v1 configuration: {in_features=}, {out_features=}")
-    return "linear_v1", SequentialTorch(
+    return "linear_v1_torch", SequentialTorch(
         LinearTorch(in_features=in_features, out_features=150),
         BatchNorm1dTorch(150),
         TanhTorch(),
@@ -76,47 +76,60 @@ def linear_v1_eai(
     logger.debug(
         f"Model: Linear v1 configuration: {in_features=}, {out_features=}, {fixed_point_total_bits=}, {fixed_point_fraction_bits=}"
     )
-    return "linear_v1", Sequential(
-        LinearEai(
-            in_features=in_features,
-            out_features=150,
-            total_bits=fixed_point_total_bits,
-            frac_bits=fixed_point_fraction_bits,
-        ),
-        TanhEai(total_bits=fixed_point_total_bits, frac_bits=fixed_point_fraction_bits),
-        LinearEai(
-            in_features=150,
-            out_features=16,
-            total_bits=fixed_point_total_bits,
-            frac_bits=fixed_point_fraction_bits,
-        ),
-        TanhEai(total_bits=fixed_point_total_bits, frac_bits=fixed_point_fraction_bits),
-        LinearEai(
-            in_features=16,
-            out_features=400,
-            total_bits=fixed_point_total_bits,
-            frac_bits=fixed_point_fraction_bits,
-        ),
-        TanhEai(total_bits=fixed_point_total_bits, frac_bits=fixed_point_fraction_bits),
-        LinearEai(
-            in_features=400,
-            out_features=120,
-            total_bits=fixed_point_total_bits,
-            frac_bits=fixed_point_fraction_bits,
-        ),
-        TanhEai(total_bits=fixed_point_total_bits, frac_bits=fixed_point_fraction_bits),
-        LinearEai(
-            in_features=120,
-            out_features=84,
-            total_bits=fixed_point_total_bits,
-            frac_bits=fixed_point_fraction_bits,
-        ),
-        TanhEai(total_bits=fixed_point_total_bits, frac_bits=fixed_point_fraction_bits),
-        LinearEai(
-            in_features=84,
-            out_features=out_features,
-            total_bits=fixed_point_total_bits,
-            frac_bits=fixed_point_fraction_bits,
+    return (
+        f"linear_v1_q{fixed_point_total_bits - fixed_point_fraction_bits}.{fixed_point_fraction_bits}",
+        Sequential(
+            LinearEai(
+                in_features=in_features,
+                out_features=150,
+                total_bits=fixed_point_total_bits,
+                frac_bits=fixed_point_fraction_bits,
+            ),
+            TanhEai(
+                total_bits=fixed_point_total_bits, frac_bits=fixed_point_fraction_bits
+            ),
+            LinearEai(
+                in_features=150,
+                out_features=16,
+                total_bits=fixed_point_total_bits,
+                frac_bits=fixed_point_fraction_bits,
+            ),
+            TanhEai(
+                total_bits=fixed_point_total_bits, frac_bits=fixed_point_fraction_bits
+            ),
+            LinearEai(
+                in_features=16,
+                out_features=400,
+                total_bits=fixed_point_total_bits,
+                frac_bits=fixed_point_fraction_bits,
+            ),
+            TanhEai(
+                total_bits=fixed_point_total_bits, frac_bits=fixed_point_fraction_bits
+            ),
+            LinearEai(
+                in_features=400,
+                out_features=120,
+                total_bits=fixed_point_total_bits,
+                frac_bits=fixed_point_fraction_bits,
+            ),
+            TanhEai(
+                total_bits=fixed_point_total_bits, frac_bits=fixed_point_fraction_bits
+            ),
+            LinearEai(
+                in_features=120,
+                out_features=84,
+                total_bits=fixed_point_total_bits,
+                frac_bits=fixed_point_fraction_bits,
+            ),
+            TanhEai(
+                total_bits=fixed_point_total_bits, frac_bits=fixed_point_fraction_bits
+            ),
+            LinearEai(
+                in_features=84,
+                out_features=out_features,
+                total_bits=fixed_point_total_bits,
+                frac_bits=fixed_point_fraction_bits,
+            ),
         ),
     )
 
@@ -146,52 +159,65 @@ def linear_v1_delta(
     logger.debug(
         f"Model: Linear v1 configuration: {in_features=}, {out_features=}, {fixed_point_total_bits=}, {fixed_point_fraction_bits=}, {delta_bit_width=}"
     )
-    return "linear_v1", Sequential(
-        LinearDelta(
-            in_features=in_features,
-            out_features=150,
-            total_bits=fixed_point_total_bits,
-            frac_bits=fixed_point_fraction_bits,
-            delta_bit_width=delta_bit_width,
-        ),
-        TanhEai(total_bits=fixed_point_total_bits, frac_bits=fixed_point_fraction_bits),
-        LinearDelta(
-            in_features=150,
-            out_features=16,
-            total_bits=fixed_point_total_bits,
-            frac_bits=fixed_point_fraction_bits,
-            delta_bit_width=delta_bit_width,
-        ),
-        TanhEai(total_bits=fixed_point_total_bits, frac_bits=fixed_point_fraction_bits),
-        LinearDelta(
-            in_features=16,
-            out_features=400,
-            total_bits=fixed_point_total_bits,
-            frac_bits=fixed_point_fraction_bits,
-            delta_bit_width=delta_bit_width,
-        ),
-        TanhEai(total_bits=fixed_point_total_bits, frac_bits=fixed_point_fraction_bits),
-        LinearDelta(
-            in_features=400,
-            out_features=120,
-            total_bits=fixed_point_total_bits,
-            frac_bits=fixed_point_fraction_bits,
-            delta_bit_width=delta_bit_width,
-        ),
-        TanhEai(total_bits=fixed_point_total_bits, frac_bits=fixed_point_fraction_bits),
-        LinearDelta(
-            in_features=120,
-            out_features=84,
-            total_bits=fixed_point_total_bits,
-            frac_bits=fixed_point_fraction_bits,
-            delta_bit_width=delta_bit_width,
-        ),
-        TanhEai(total_bits=fixed_point_total_bits, frac_bits=fixed_point_fraction_bits),
-        LinearDelta(
-            in_features=84,
-            out_features=out_features,
-            total_bits=fixed_point_total_bits,
-            frac_bits=fixed_point_fraction_bits,
-            delta_bit_width=delta_bit_width,
+    return (
+        f"linear_v1_q{fixed_point_total_bits - fixed_point_fraction_bits}.{fixed_point_fraction_bits}_d{delta_bit_width}",
+        Sequential(
+            LinearDelta(
+                in_features=in_features,
+                out_features=150,
+                total_bits=fixed_point_total_bits,
+                frac_bits=fixed_point_fraction_bits,
+                delta_bit_width=delta_bit_width,
+            ),
+            TanhEai(
+                total_bits=fixed_point_total_bits, frac_bits=fixed_point_fraction_bits
+            ),
+            LinearDelta(
+                in_features=150,
+                out_features=16,
+                total_bits=fixed_point_total_bits,
+                frac_bits=fixed_point_fraction_bits,
+                delta_bit_width=delta_bit_width,
+            ),
+            TanhEai(
+                total_bits=fixed_point_total_bits, frac_bits=fixed_point_fraction_bits
+            ),
+            LinearDelta(
+                in_features=16,
+                out_features=400,
+                total_bits=fixed_point_total_bits,
+                frac_bits=fixed_point_fraction_bits,
+                delta_bit_width=delta_bit_width,
+            ),
+            TanhEai(
+                total_bits=fixed_point_total_bits, frac_bits=fixed_point_fraction_bits
+            ),
+            LinearDelta(
+                in_features=400,
+                out_features=120,
+                total_bits=fixed_point_total_bits,
+                frac_bits=fixed_point_fraction_bits,
+                delta_bit_width=delta_bit_width,
+            ),
+            TanhEai(
+                total_bits=fixed_point_total_bits, frac_bits=fixed_point_fraction_bits
+            ),
+            LinearDelta(
+                in_features=120,
+                out_features=84,
+                total_bits=fixed_point_total_bits,
+                frac_bits=fixed_point_fraction_bits,
+                delta_bit_width=delta_bit_width,
+            ),
+            TanhEai(
+                total_bits=fixed_point_total_bits, frac_bits=fixed_point_fraction_bits
+            ),
+            LinearDelta(
+                in_features=84,
+                out_features=out_features,
+                total_bits=fixed_point_total_bits,
+                frac_bits=fixed_point_fraction_bits,
+                delta_bit_width=delta_bit_width,
+            ),
         ),
     )
