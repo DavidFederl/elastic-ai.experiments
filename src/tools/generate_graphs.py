@@ -5,7 +5,7 @@ import json
 import logging
 import re
 from pathlib import Path
-from typing import Annotated, Dict, List, Optional
+from typing import Annotated
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -20,7 +20,7 @@ app = typer.Typer()
 logger: logging.Logger = logging.getLogger(__name__)
 
 
-def load_json_files(directory: Path) -> List[Dict]:
+def load_json_files(directory: Path) -> list[dict]:
     """Load all JSON files from a directory in chronological order.
 
     Args:
@@ -64,7 +64,46 @@ def load_json_files(directory: Path) -> List[Dict]:
     return data
 
 
-def plot_metrics(data: List[Dict], output_dir: Path, metric_name: str = "loss"):
+def plot_combined_metrics(
+    data: dict[str, list[dict]], output_dir: Path, metric_name: str = "loss"
+):
+    output_dir.mkdir(exist_ok=True, parents=True)
+
+    # Extract data for plotting
+    preprocessed_data = {}
+    for model_id, model_data in data.items():
+        epochs = []
+        values = []
+
+        for i, metrics in enumerate(model_data):
+            if metric_name in metrics:
+                epochs.append(i)
+                values.append(metrics[metric_name])
+        preprocessed_data[model_id] = (epochs, values)
+
+    if not preprocessed_data:
+        logger.warning(f"No {metric_name} data found in JSON files")
+        return
+
+    # Create plot
+    plt.figure(figsize=(10, 6))
+    for model_id, model_data in preprocessed_data.items():
+        plt.plot(model_data[0], model_data[1], marker="o", label=model_id)
+    plt.legend()
+    plt.title(f"{metric_name.capitalize()} over Epochs")
+    plt.xlabel("Epoch")
+    plt.ylabel(metric_name.capitalize())
+    plt.grid(True)
+
+    # Save plot
+    output_file = output_dir / f"{metric_name}.png"
+    plt.savefig(output_file)
+    plt.close()
+
+    logger.info(f"Saved plot to {output_file}")
+
+
+def plot_metrics(data: list[dict], output_dir: Path, metric_name: str = "loss"):
     """Plot metrics from JSON data.
 
     Args:
@@ -89,11 +128,18 @@ def plot_metrics(data: List[Dict], output_dir: Path, metric_name: str = "loss"):
 
     # Create plot
     plt.figure(figsize=(10, 6))
-    plt.plot(epochs, values, marker="o")
+    plt.plot(epochs, values, marker="o", label=metric_name.capitalize())
     plt.title(f"{metric_name.capitalize()} over Epochs")
     plt.xlabel("Epoch")
     plt.ylabel(metric_name.capitalize())
     plt.grid(True)
+    plt.legend(
+        loc="upper center",
+        bbox_to_anchor=(0.5, -0.15),
+        fancybox=True,
+        shadow=True,
+        ncol=5,
+    )
 
     # Save plot
     output_file = output_dir / f"{metric_name}.png"
@@ -103,7 +149,7 @@ def plot_metrics(data: List[Dict], output_dir: Path, metric_name: str = "loss"):
     logger.info(f"Saved plot to {output_file}")
 
 
-def plot_comparison(data: List[Dict], output_dir: Path):
+def plot_comparison(data: list[dict], output_dir: Path):
     """Plot comparison between original and simulated models.
 
     Args:
@@ -152,7 +198,7 @@ def plot_comparison(data: List[Dict], output_dir: Path):
 def generate_graphs(
     input_dir: Path,
     output_dir: Path = Path("graphs"),
-    metrics: List[str] | None = None,
+    metrics: list[str] | None = None,
 ):
     """Generate graphs from JSON metrics files.
 
@@ -160,7 +206,6 @@ def generate_graphs(
         input_dir: Directory containing JSON metrics files.
         output_dir: Output directory for generated graphs.
         metrics: Specific metrics to plot.
-        verbose: Enable verbose output.
     """
     logger.info(f"Loading JSON files from {input_dir}")
     data = load_json_files(input_dir)
@@ -203,11 +248,40 @@ def generate_graphs(
     logger.info(f"Graphs generated in {output_dir}")
 
 
+def generate_combined_graphs(
+    input_dirs: list[Path],
+    output_dir: Path,
+):
+    """Generate graphs from JSON metrics files.
+
+    Args:
+        input_dir: Directory containing JSON metrics files.
+        output_dir: Output directory for generated graphs.
+    """
+    logger.info(f"Loading JSON files from {input_dirs}")
+    data = {}
+    for input_dir in input_dirs:
+        data[input_dir.parent.parent.name] = load_json_files(input_dir)
+    if not data:
+        logger.error("No valid JSON files found in the input directory")
+        return
+    logger.info(f"Found {len(data)} different models")
+
+    metrics = ["accuracy", "loss"]
+    logger.info(f"Generating plots for metrics: {metrics}")
+
+    # Generate plots
+    for metric in metrics:
+        plot_combined_metrics(data, output_dir, metric_name=metric)
+
+    logger.info(f"Graphs generated in {output_dir}")
+
+
 @app.command()
-def main(
-    input_dir: Annotated[
-        Path,
-        typer.Option(
+def combined_view(
+    input_dirs: Annotated[
+        list[Path],
+        typer.Argument(
             help="Directory containing JSON metrics files.",
             exists=True,
             file_okay=False,
@@ -217,15 +291,45 @@ def main(
     ],
     output_dir: Annotated[
         Path,
-        typer.Option(
+        typer.Argument(
             help="Output directory for generated graphs.",
             file_okay=False,
             dir_okay=True,
             writable=True,
         ),
-    ] = Path("graphs"),
+    ],
+    verbose: Annotated[
+        bool, typer.Option(help="Enable verbose output.", is_flag=True)
+    ] = False,
+):
+    """Generate graphic visualisations of accuracy and loss from JSON metrics files for multiple models."""
+    setup_logging(output_dir, verbose)
+    generate_combined_graphs(input_dirs, output_dir)
+
+
+@app.command()
+def single_model(
+    input_dir: Annotated[
+        Path,
+        typer.Argument(
+            help="Directory containing JSON metrics files.",
+            exists=True,
+            file_okay=False,
+            dir_okay=True,
+            readable=True,
+        ),
+    ],
+    output_dir: Annotated[
+        Path,
+        typer.Argument(
+            help="Output directory for generated graphs.",
+            file_okay=False,
+            dir_okay=True,
+            writable=True,
+        ),
+    ],
     metrics: Annotated[
-        Optional[List[str]],
+        list[str] | None,
         typer.Option(
             "--metrics",
             "-m",
@@ -233,16 +337,11 @@ def main(
             "If not specified, plots all available metrics.",
         ),
     ] = None,
-    verbose: Annotated[bool, typer.Option(help="Enable verbose output.")] = False,
+    verbose: Annotated[
+        bool, typer.Option(help="Enable verbose output.", is_flag=True)
+    ] = False,
 ):
-    """Generate graphs from JSON metrics files.
-
-    Args:
-        input_dir: Directory containing JSON metrics files.
-        output_dir: Output directory for generated graphs.
-        metrics: Specific metrics to plot.
-        verbose: Enable verbose output.
-    """
+    """Generate graphic visualisations from JSON metrics files for a single model."""
     setup_logging(output_dir, verbose)
     generate_graphs(input_dir=input_dir, output_dir=output_dir, metrics=metrics)
 
