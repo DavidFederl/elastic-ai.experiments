@@ -16,8 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 def linear_v1_torch(
-    in_features: int,
-    out_features: int,
+    in_features: int, out_features: int, bias: bool = True
 ) -> tuple[str, SequentialTorch]:
     """Model consisting of a linear layer followed by a tanh layer.
 
@@ -26,6 +25,7 @@ def linear_v1_torch(
     Args:
         in_features (int): Number of input features.
         out_features (int): Number of output features.
+        bias (bias): if bias is used (default: True).
 
     Returns:
         Squence: Sequential model.
@@ -33,22 +33,22 @@ def linear_v1_torch(
     logger.info("Model: Linear v1 (PyTorch)")
     logger.debug(f"Model: Linear v1 configuration: {in_features=}, {out_features=}")
     return "linear_v1_torch", SequentialTorch(
-        LinearTorch(in_features=in_features, out_features=150),
+        LinearTorch(in_features=in_features, out_features=150, bias=bias),
         BatchNorm1dTorch(150),
         TanhTorch(),
-        LinearTorch(in_features=150, out_features=16),
+        LinearTorch(in_features=150, out_features=16, bias=bias),
         BatchNorm1dTorch(16),
         TanhTorch(),
-        LinearTorch(in_features=16, out_features=400),
+        LinearTorch(in_features=16, out_features=400, bias=bias),
         BatchNorm1dTorch(400),
         TanhTorch(),
-        LinearTorch(in_features=400, out_features=120),
+        LinearTorch(in_features=400, out_features=120, bias=bias),
         BatchNorm1dTorch(120),
         TanhTorch(),
-        LinearTorch(in_features=120, out_features=84),
+        LinearTorch(in_features=120, out_features=84, bias=bias),
         BatchNorm1dTorch(84),
         TanhTorch(),
-        LinearTorch(in_features=84, out_features=out_features),
+        LinearTorch(in_features=84, out_features=out_features, bias=bias),
     )
 
 
@@ -57,6 +57,7 @@ def linear_v1_eai(
     out_features: int,
     fixed_point_total_bits: int,
     fixed_point_fraction_bits: int,
+    bias: bool = True,
 ) -> tuple[str, Sequential]:
     """Model consisting of a linear layer followed by a tanh layer.
 
@@ -68,6 +69,7 @@ def linear_v1_eai(
         fixed_point_total_bits (int): Total number of bits for fixed point representation.
                                       IMPORTANT: includes sign bit!
         fixed_point_fraction_bits (int): Number of fraction bits for fixed point representation.
+        bias (bias): if bias is used (default: True).
 
     Returns:
         Squence: Sequential model.
@@ -84,6 +86,7 @@ def linear_v1_eai(
                 out_features=150,
                 total_bits=fixed_point_total_bits,
                 frac_bits=fixed_point_fraction_bits,
+                bias=bias,
             ),
             TanhEai(
                 total_bits=fixed_point_total_bits, frac_bits=fixed_point_fraction_bits
@@ -93,6 +96,7 @@ def linear_v1_eai(
                 out_features=16,
                 total_bits=fixed_point_total_bits,
                 frac_bits=fixed_point_fraction_bits,
+                bias=bias,
             ),
             TanhEai(
                 total_bits=fixed_point_total_bits, frac_bits=fixed_point_fraction_bits
@@ -102,6 +106,7 @@ def linear_v1_eai(
                 out_features=400,
                 total_bits=fixed_point_total_bits,
                 frac_bits=fixed_point_fraction_bits,
+                bias=bias,
             ),
             TanhEai(
                 total_bits=fixed_point_total_bits, frac_bits=fixed_point_fraction_bits
@@ -111,6 +116,7 @@ def linear_v1_eai(
                 out_features=120,
                 total_bits=fixed_point_total_bits,
                 frac_bits=fixed_point_fraction_bits,
+                bias=bias,
             ),
             TanhEai(
                 total_bits=fixed_point_total_bits, frac_bits=fixed_point_fraction_bits
@@ -120,6 +126,7 @@ def linear_v1_eai(
                 out_features=84,
                 total_bits=fixed_point_total_bits,
                 frac_bits=fixed_point_fraction_bits,
+                bias=bias,
             ),
             TanhEai(
                 total_bits=fixed_point_total_bits, frac_bits=fixed_point_fraction_bits
@@ -129,6 +136,7 @@ def linear_v1_eai(
                 out_features=out_features,
                 total_bits=fixed_point_total_bits,
                 frac_bits=fixed_point_fraction_bits,
+                bias=bias,
             ),
         ),
     )
@@ -140,6 +148,7 @@ def linear_v1_delta(
     fixed_point_total_bits: int,
     fixed_point_fraction_bits: int,
     delta_bit_width: int,
+    bias: bool = True,
 ) -> tuple[str, Sequential]:
     """Model consisting of a linear layer followed by a tanh layer.
 
@@ -151,6 +160,7 @@ def linear_v1_delta(
         fixed_point_total_bits (int): Total number of bits for fixed point representation.
                                       IMPORTANT: includes sign bit!
         fixed_point_fraction_bits (int): Number of fraction bits for fixed point representation.
+        bias (bias): if bias is used (default: True).
 
     Returns:
         Squence: Sequential model.
@@ -168,6 +178,7 @@ def linear_v1_delta(
                 total_bits=fixed_point_total_bits,
                 frac_bits=fixed_point_fraction_bits,
                 delta_bit_width=delta_bit_width,
+                bias=bias,
             ),
             TanhEai(
                 total_bits=fixed_point_total_bits, frac_bits=fixed_point_fraction_bits
@@ -178,6 +189,7 @@ def linear_v1_delta(
                 total_bits=fixed_point_total_bits,
                 frac_bits=fixed_point_fraction_bits,
                 delta_bit_width=delta_bit_width,
+                bias=bias,
             ),
             TanhEai(
                 total_bits=fixed_point_total_bits, frac_bits=fixed_point_fraction_bits
@@ -188,6 +200,7 @@ def linear_v1_delta(
                 total_bits=fixed_point_total_bits,
                 frac_bits=fixed_point_fraction_bits,
                 delta_bit_width=delta_bit_width,
+                bias=bias,
             ),
             TanhEai(
                 total_bits=fixed_point_total_bits, frac_bits=fixed_point_fraction_bits
@@ -198,6 +211,7 @@ def linear_v1_delta(
                 total_bits=fixed_point_total_bits,
                 frac_bits=fixed_point_fraction_bits,
                 delta_bit_width=delta_bit_width,
+                bias=bias,
             ),
             TanhEai(
                 total_bits=fixed_point_total_bits, frac_bits=fixed_point_fraction_bits
@@ -208,6 +222,7 @@ def linear_v1_delta(
                 total_bits=fixed_point_total_bits,
                 frac_bits=fixed_point_fraction_bits,
                 delta_bit_width=delta_bit_width,
+                bias=bias,
             ),
             TanhEai(
                 total_bits=fixed_point_total_bits, frac_bits=fixed_point_fraction_bits
@@ -218,6 +233,7 @@ def linear_v1_delta(
                 total_bits=fixed_point_total_bits,
                 frac_bits=fixed_point_fraction_bits,
                 delta_bit_width=delta_bit_width,
+                bias=bias,
             ),
         ),
     )
