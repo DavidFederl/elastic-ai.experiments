@@ -68,9 +68,6 @@ class Training:
         if not model_dir.is_dir():
             logger.debug("Checking previous state: No model dir!")
             first_epoch = 0
-        elif model_dir.joinpath("model.pth").exists():
-            logger.debug("Checking previous state: model.pth exists!")
-            first_epoch = epochs
         else:
             logger.debug("Checking previous state: Checking snapshots!")
             snapshots: list[Path] = [
