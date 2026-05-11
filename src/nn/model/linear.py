@@ -1,16 +1,14 @@
 import logging
 
 from elasticai.creator.nn import Sequential
+from elasticai.creator.nn.delta_compression import BatchNormedLinear as LinearDelta
+from elasticai.creator.nn.delta_compression.delta_operations import DeltaType
 from elasticai.creator.nn.fixed_point import BatchNormedLinear as LinearEai
 from elasticai.creator.nn.fixed_point import HardTanh as TanhEai
 from torch.nn import BatchNorm1d as BatchNorm1dTorch
 from torch.nn import Hardtanh as TanhTorch
 from torch.nn import Linear as LinearTorch
 from torch.nn import Sequential as SequentialTorch
-
-from eai_plugins.delta_compression import (
-    Linear as LinearDelta,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -79,7 +77,7 @@ def linear_v1_eai(
         f"Model: Linear v1 configuration: {in_features=}, {out_features=}, {fixed_point_total_bits=}, {fixed_point_fraction_bits=}"
     )
     return (
-        f"linear_v1_q{fixed_point_total_bits - fixed_point_fraction_bits}.{fixed_point_fraction_bits}",
+        f"linear_v1_q{fixed_point_total_bits - fixed_point_fraction_bits - 1}.{fixed_point_fraction_bits}",
         Sequential(
             LinearEai(
                 in_features=in_features,
@@ -148,6 +146,8 @@ def linear_v1_delta(
     fixed_point_total_bits: int,
     fixed_point_fraction_bits: int,
     delta_bit_width: int,
+    delta_offset: int,
+    delta_type: DeltaType,
     bias: bool = True,
 ) -> tuple[str, Sequential]:
     """Model consisting of a linear layer followed by a tanh layer.
@@ -161,6 +161,9 @@ def linear_v1_delta(
                                       IMPORTANT: includes sign bit!
         fixed_point_fraction_bits (int): Number of fraction bits for fixed point representation.
         bias (bias): if bias is used (default: True).
+        delta_bit_width (int): total delta width
+        delta_offset (int): bits to move delta from LSB
+        delta_type (DeltaType): delta calculationa algorithm to use
 
     Returns:
         Squence: Sequential model.
@@ -170,14 +173,17 @@ def linear_v1_delta(
         f"Model: Linear v1 configuration: {in_features=}, {out_features=}, {fixed_point_total_bits=}, {fixed_point_fraction_bits=}, {delta_bit_width=}"
     )
     return (
-        f"linear_v1_q{fixed_point_total_bits - fixed_point_fraction_bits}.{fixed_point_fraction_bits}_d{delta_bit_width}",
+        f"linear_v1_q{fixed_point_total_bits - fixed_point_fraction_bits - 1}.{fixed_point_fraction_bits}_d{delta_bit_width}o{delta_offset}",
         Sequential(
             LinearDelta(
                 in_features=in_features,
                 out_features=150,
                 total_bits=fixed_point_total_bits,
                 frac_bits=fixed_point_fraction_bits,
-                delta_bit_width=delta_bit_width,
+                delta_bits=delta_bit_width,
+                delta_offset=delta_offset,
+                delta_type=delta_type,
+                clamp=True,
                 bias=bias,
             ),
             TanhEai(
@@ -188,7 +194,10 @@ def linear_v1_delta(
                 out_features=16,
                 total_bits=fixed_point_total_bits,
                 frac_bits=fixed_point_fraction_bits,
-                delta_bit_width=delta_bit_width,
+                delta_bits=delta_bit_width,
+                delta_offset=delta_offset,
+                delta_type=delta_type,
+                clamp=True,
                 bias=bias,
             ),
             TanhEai(
@@ -199,7 +208,10 @@ def linear_v1_delta(
                 out_features=400,
                 total_bits=fixed_point_total_bits,
                 frac_bits=fixed_point_fraction_bits,
-                delta_bit_width=delta_bit_width,
+                delta_bits=delta_bit_width,
+                delta_offset=delta_offset,
+                delta_type=delta_type,
+                clamp=True,
                 bias=bias,
             ),
             TanhEai(
@@ -210,7 +222,10 @@ def linear_v1_delta(
                 out_features=120,
                 total_bits=fixed_point_total_bits,
                 frac_bits=fixed_point_fraction_bits,
-                delta_bit_width=delta_bit_width,
+                delta_bits=delta_bit_width,
+                delta_offset=delta_offset,
+                delta_type=delta_type,
+                clamp=True,
                 bias=bias,
             ),
             TanhEai(
@@ -221,7 +236,10 @@ def linear_v1_delta(
                 out_features=84,
                 total_bits=fixed_point_total_bits,
                 frac_bits=fixed_point_fraction_bits,
-                delta_bit_width=delta_bit_width,
+                delta_bits=delta_bit_width,
+                delta_offset=delta_offset,
+                delta_type=delta_type,
+                clamp=True,
                 bias=bias,
             ),
             TanhEai(
@@ -232,7 +250,10 @@ def linear_v1_delta(
                 out_features=out_features,
                 total_bits=fixed_point_total_bits,
                 frac_bits=fixed_point_fraction_bits,
-                delta_bit_width=delta_bit_width,
+                delta_bits=delta_bit_width,
+                delta_offset=delta_offset,
+                delta_type=delta_type,
+                clamp=True,
                 bias=bias,
             ),
         ),
