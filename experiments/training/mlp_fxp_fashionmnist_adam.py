@@ -55,7 +55,7 @@ def main(
     )
 
     models: dict[str, Sequential] = {}
-    for fraction_bits in range(1, total_fixed_point_bits):
+    for fraction_bits in range(0, total_fixed_point_bits):
         model_id, model = linear_v1_eai(
             in_features=training_ds[0][0].shape.numel(),
             out_features=len(training_ds.classes),
