@@ -2,10 +2,10 @@ import logging
 from pathlib import Path
 from typing import Callable
 
-import torch
 import torchvision
 import torchvision.datasets
 import torchvision.transforms as transforms
+from torch import Tensor
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +41,7 @@ def fashionmnist_trainingset_flattened() -> FashionMNIST:
         [
             transforms.ToTensor(),
             transforms.Normalize((0.5,), (0.5,)),
-            transforms.Lambda(lambda x: torch.flatten(x)),
+            transforms.Lambda(lambda x: Tensor.flatten(x)),
         ]
     )
     return FashionMNIST(root="datasets", train=True, transform=transformations)
@@ -52,7 +52,7 @@ def fashionmnist_validationset_flattened() -> FashionMNIST:
         [
             transforms.ToTensor(),
             transforms.Normalize((0.5,), (0.5,)),
-            transforms.Lambda(lambda x: torch.flatten(x)),
+            transforms.Lambda(lambda x: Tensor.flatten(x)),
         ]
     )
     return FashionMNIST(root="datasets", train=False, transform=transformations)

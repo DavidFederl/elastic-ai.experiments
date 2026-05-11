@@ -2,9 +2,8 @@ import logging
 from pathlib import Path
 from typing import Callable
 
-import torch
 from numpy import load as np_load
-from torch import as_tensor
+from torch import Tensor, from_numpy
 from torch.utils.data import Dataset
 from torchvision import transforms
 
@@ -93,7 +92,7 @@ class SmarTable(Dataset):
                     ]:
                         logger.debug(f"Loading: {sample.absolute()}")
                         with np_load(sample.absolute()) as sample_data:
-                            data.append(as_tensor(sample_data["x"]))
+                            data.append(from_numpy(sample_data["x"]))
                         targets.append(sample.parent.name)
 
         logger.debug(f"Loaded {len(data)} samples")
@@ -128,7 +127,7 @@ class SmarTable(Dataset):
                     ]:
                         logger.debug(f"Loading: {sample.absolute()}")
                         with np_load(sample.absolute()) as sample_data:
-                            data.append(as_tensor(sample_data["x"]))
+                            data.append(from_numpy(sample_data["x"]))
                         targets.append(sample.parent.name)
 
         logger.debug(f"Loaded {len(data)} samples")
@@ -152,7 +151,7 @@ class SmarTable(Dataset):
 def smartable_trainingset_flattened() -> SmarTable:
     transformations: transforms.Compose = transforms.Compose(
         [
-            transforms.Lambda(lambda x: torch.flatten(x)),
+            transforms.Lambda(lambda x: Tensor.flatten(x)),
         ]
     )
     return SmarTable(root="datasets", train=True, transform=transformations)
@@ -161,7 +160,7 @@ def smartable_trainingset_flattened() -> SmarTable:
 def smartable_validationset_flattened() -> SmarTable:
     transformations: transforms.Compose = transforms.Compose(
         [
-            transforms.Lambda(lambda x: torch.flatten(x)),
+            transforms.Lambda(lambda x: Tensor.flatten(x)),
         ]
     )
     return SmarTable(root="datasets", train=False, transform=transformations)
