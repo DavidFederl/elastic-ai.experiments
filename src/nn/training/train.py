@@ -91,6 +91,7 @@ class Training:
         )
         training_metrics.reset()
 
+        self.model.train()
         for inputs, labels in tqdm(
             self.training_dataloader,
             total=len(self.training_dataloader),
@@ -99,7 +100,7 @@ class Training:
             inputs = inputs.to(self.device)
             labels = labels.to(self.device)
 
-            self.optimizer.zero_grad()
+            self.optimizer.zero_grad(set_to_none=True)
             outputs = self.model(inputs)
 
             loss = self.loss_fn(outputs, labels)
@@ -117,6 +118,7 @@ class Training:
         )
         validation_metrics.reset()
 
+        self.model.eval()
         with no_grad():
             for inputs, labels in self.validation_dataloader:
                 inputs = inputs.to(self.device)
@@ -233,7 +235,6 @@ class Training:
         for epoch in range(begin, epochs):
             logger.info(f"Epoch {epoch + 1}/{epochs}")
 
-            self.model.train(True)
             training_metrics = self._train_epoch(epoch)
             validation_metrics = self._validate_epoch()
             self._log_metrics(epoch, training_metrics, validation_metrics)
