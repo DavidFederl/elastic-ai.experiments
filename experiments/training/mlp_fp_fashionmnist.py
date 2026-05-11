@@ -55,7 +55,7 @@ def main(
     _, model = linear_v1_torch(
         in_features=training_ds[0][0].shape.numel(),
         out_features=len(training_ds.classes),
-        bias=True,
+        bias=False,
     )
 
     optimizer = optim.Adam(
