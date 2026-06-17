@@ -5,16 +5,19 @@ from typing import Self
 
 from torch import load, no_grad, optim, save
 from torch.nn import CrossEntropyLoss
+from torch.nn import Sequential as Sequential_torch
 from torch.nn.modules.loss import _Loss
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from tqdm_loggable.auto import tqdm
 
-from src.nn.model import Sequential
+from src.nn.model import Sequential as Sequential_creator
 
 from .metrics import Metrics, MetricWriter
 
 logger = logging.getLogger(__name__)
+
+type Sequential = Sequential_torch | Sequential_creator
 
 
 class Training:

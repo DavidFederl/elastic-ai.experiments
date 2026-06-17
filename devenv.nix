@@ -25,10 +25,10 @@
     fp_training = {
       exec = ''
         SCRIPT_DIR=$(dirname "$(realpath "$0")")
-        EXPERIMENT=''${DEVENV_ROOT}/experiments/training/mlp_fp_fashionmnist.py
+        EXPERIMENT=''${DEVENV_ROOT}/experiments/training/mlp_fashionmnist_adam.py
 
         for run in {0..99}; do
-          uv run "''${EXPERIMENT}" \
+          uv run "''${EXPERIMENT}" floating-point \
             --log-dir "logs/$1/fp_bs512/''${run}/" \
             --verbose \
             --epochs 100 \
@@ -40,31 +40,32 @@
     };
     fxp_training = {
       exec = ''
-        EXPERIMENT=''${DEVENV_ROOT}/experiments/training/mlp_fxp_fashionmnist_adam.py
+        EXPERIMENT=''${DEVENV_ROOT}/experiments/training/mlp_fashionmnist_adam.py
 
         echo "Running: $EXPERIMENT"
 
         for run in {0..99}; do
-          uv run "''${EXPERIMENT}" \
-            --log-dir "logs/$2/fxp_8bit_bs512/$run" \
+          uv run "''${EXPERIMENT}" fixed-point\
+            --log-dir "logs/$3/q$(( $1 - $2 - 1 )).$2_bs512/$run" \
             --verbose \
             --epochs 100 \
             --batch-size 512 \
             --total-fixed-point-bits $1
+            --fraction-bits $2
         done
       '';
       binary = "bash";
-      description = "Run fixed-point training (100 times; 100 epochs). Input: total-fixed-point-bits, log-prefix";
+      description = "Run fixed-point training (100 times; 100 epochs). Input: total-fixed-point-bits, fraction-bits, log-prefix";
     };
     consecutive_delta_training = {
       exec = ''
-        EXPERIMENT=''${DEVENV_ROOT}/experiments/training/mlp_delta_fashionmnist_adam.py
+        EXPERIMENT=''${DEVENV_ROOT}/experiments/training/mlp_fashionmnist_adam.py
 
         echo "Running: $EXPERIMENT"
 
         for run in {0..99}; do
-          uv run "''${EXPERIMENT}" \
-            --log-dir "logs/$5/runs/q$(( $1 - $2 - 1 )).$2_d$3o$4_consecutive_bs512/$run" \
+          uv run "''${EXPERIMENT}" delta \
+            --log-dir "logs/$5/q$(( $1 - $2 - 1 )).$2_d$3o$4_consecutive_bs512/$run" \
             --verbose \
             --epochs 100 \
             --batch-size 512 \
@@ -80,13 +81,13 @@
     };
     fixed_delta_training = {
       exec = ''
-        EXPERIMENT=''${DEVENV_ROOT}/experiments/training/mlp_delta_fashionmnist_adam.py
+        EXPERIMENT=''${DEVENV_ROOT}/experiments/training/mlp_fashionmnist_adam.py
 
         echo "Running: $EXPERIMENT"
 
         for run in {0..99}; do
-          uv run "''${EXPERIMENT}" \
-            --log-dir "logs/$5/runs/q$(( $1 - $2 - 1 )).$2_d$3o$4_fixed_bs512/$run" \
+          uv run "''${EXPERIMENT}" delta \
+            --log-dir "logs/$5/q$(( $1 - $2 - 1 )).$2_d$3o$4_fixed_bs512/$run" \
             --verbose \
             --epochs 100 \
             --batch-size 512 \
