@@ -120,7 +120,7 @@
     };
     "check:types" = {
       exec = ''
-        uv run ty check src/
+        uv run ty check src/ experiments/
       '';
       before = [ "check:code-lint" ];
     };
