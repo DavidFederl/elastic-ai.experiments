@@ -81,7 +81,7 @@ def write_wide_csv(path: Path, data: RunData) -> None:
     fieldnames = (
         ["epoch"]
         + [f"{run}_{split}" for run in runs for split in ("train", "val")]
-        + ["mean_train", "mean_val", "std_train", "std_val"]
+        + ["mean_train", "mean_val", "sd_train", "sd_val"]
     )
 
     rows = []
@@ -95,8 +95,8 @@ def write_wide_csv(path: Path, data: RunData) -> None:
         val_vals = _values_at_epoch(data, epoch, "val")
         row["mean_train"] = statistics.mean(train_vals) if train_vals else ""
         row["mean_val"] = statistics.mean(val_vals) if val_vals else ""
-        row["std_train"] = statistics.stdev(train_vals) if len(train_vals) > 1 else ""
-        row["std_val"] = statistics.stdev(val_vals) if len(val_vals) > 1 else ""
+        row["sd_train"] = statistics.stdev(train_vals) if len(train_vals) > 1 else ""
+        row["sd_val"] = statistics.stdev(val_vals) if len(val_vals) > 1 else ""
         rows.append(row)
 
     with open(path, "w", newline="") as f:
@@ -155,7 +155,7 @@ def _format_section(data: RunData, metric: str, lower_is_better: bool) -> str:
     lines.append(f"Runs: {n_runs}")
     lines.append("")
 
-    header = f"  {'Epoch':>5}  {'Mean Train':>10}  {'Std Train':>9}  {'95% CI Train':<24}  {'Mean Val':>10}  {'Std Val':>9}  {'95% CI Val':<24}"
+    header = f"  {'Epoch':>5}  {'Mean Train':>10}  {'SD Train':>9}  {'95% CI Train':<24}  {'Mean Val':>10}  {'SD Val':>9}  {'95% CI Val':<24}"
     separator = "  " + "-" * (len(header) - 2)
     lines.append(header)
     lines.append(separator)
@@ -198,6 +198,16 @@ def _format_section(data: RunData, metric: str, lower_is_better: bool) -> str:
         for epoch in all_epochs
         if (vs := _values_at_epoch(data, epoch, "val"))
     ]
+    epoch_train_stds = [
+        statistics.stdev(vs)
+        for epoch in all_epochs
+        if len(vs := _values_at_epoch(data, epoch, "train")) > 1
+    ]
+    epoch_val_stds = [
+        statistics.stdev(vs)
+        for epoch in all_epochs
+        if len(vs := _values_at_epoch(data, epoch, "val")) > 1
+    ]
     total_t_std = (
         f"{statistics.stdev(epoch_train_means):.4f}"
         if len(epoch_train_means) > 1
@@ -206,9 +216,14 @@ def _format_section(data: RunData, metric: str, lower_is_better: bool) -> str:
     total_v_std = (
         f"{statistics.stdev(epoch_val_means):.4f}" if len(epoch_val_means) > 1 else "—"
     )
+    avg_t_std = f"{statistics.mean(epoch_train_stds):.4f}" if epoch_train_stds else "—"
+    avg_v_std = f"{statistics.mean(epoch_val_stds):.4f}" if epoch_val_stds else "—"
     lines.append(separator)
     lines.append(
         f"  {'Total':>5}  {'':>10}  {total_t_std:>9}  {'':24}  {'':>10}  {total_v_std:>9}"
+    )
+    lines.append(
+        f"  {'AvgSD':>5}  {'':>10}  {avg_t_std:>9}  {'':24}  {'':>10}  {avg_v_std:>9}"
     )
     lines.append("")
 
@@ -224,8 +239,20 @@ def _format_section(data: RunData, metric: str, lower_is_better: bool) -> str:
     return "\n".join(lines)
 
 
+_DEFINITIONS = """\
+Definitions
+===========
+SD    — standard deviation
+AvgSD — average standard deviation across epochs
+CI    — 95% confidence interval  (z = 1.96,  mean ± 1.96 · SD / √n)
+Train — training split
+Val   — validation split
+"""
+
+
 def write_statistics(path: Path, loss_data: RunData, accuracy_data: RunData) -> None:
     sections = [
+        _DEFINITIONS,
         _format_section(loss_data, "loss", lower_is_better=True),
         _format_section(accuracy_data, "accuracy", lower_is_better=False),
     ]
