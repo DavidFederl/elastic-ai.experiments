@@ -50,7 +50,7 @@
             --verbose \
             --epochs 100 \
             --batch-size 512 \
-            --total-fixed-point-bits $1
+            --total-fixed-point-bits $1 \
             --fraction-bits $2
         done
       '';
