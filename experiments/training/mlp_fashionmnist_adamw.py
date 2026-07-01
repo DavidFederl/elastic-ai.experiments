@@ -1,24 +1,26 @@
 import logging
 from datetime import datetime, timezone
+from enum import Enum
 from pathlib import Path
 from random import randint
 from typing import Annotated
 
 import typer
-from elasticai.creator.nn.delta_compression import DeltaType
+from elasticai.creator.experimental.delta_compression import DeltaCompBuilder
 from elasticai.creator.nn.sequential import Sequential as Sequential_creator
 from torch import optim
+from torch.nn import Module
 from torch.nn import Sequential as Sequential_torch
 from torch.nn.modules import CrossEntropyLoss
 from torch.utils.data import DataLoader
 
+from nn.model.evaluation import DeltaModel, FPModel, FxPModel
 from src.nn.data import (
     FashionMNIST,
     fashionmnist_trainingset_flattened,
     fashionmnist_validationset_flattened,
     get_dataloader,
 )
-from src.nn.model import linear_v1_delta, linear_v1_eai, linear_v1_torch
 from src.nn.training import TrainingBuilder, set_initial_seed
 from src.tools.generate_graphs import generate_graphs
 from src.utils import setup_logging
@@ -31,7 +33,21 @@ training_dl: DataLoader
 validation_ds: FashionMNIST = fashionmnist_validationset_flattened()
 validation_dl: DataLoader
 
-type Sequential = Sequential_torch | Sequential_creator
+type Sequential = Sequential_torch | Sequential_creator | Module
+
+
+class DeltaType(Enum):
+    CONSECUTIVE = "consecutive"
+    FIXED_REFERENCE = "fixed_reference"
+
+    def __call__(self, delta_compression_builder: DeltaCompBuilder):
+        match self.value:
+            case self.CONSECUTIVE.value:
+                return delta_compression_builder.consecutive_delta()
+            case self.FIXED_REFERENCE.value:
+                return delta_compression_builder.fixed_reference_delta()
+            case _:
+                raise ValueError("Delta Type not found!")
 
 
 def __setup_dataloader(batch_size: int) -> None:
@@ -55,7 +71,7 @@ def __train(model: Sequential, model_log_dir: Path, epochs: int, weight_decay: f
     training = (
         TrainingBuilder()
         .dataset(training_ds.classes, training_dl, validation_dl)
-        .model(model)
+        .model(model)  # type: ignore
         .device("cpu")
         .optimizer(optimizer)
         .loss_fn(loss_fn)
@@ -98,7 +114,7 @@ def floating_point(
 
     set_initial_seed(seed, make_determenistic=True)
     __setup_dataloader(batch_size=batch_size)
-    _, model = linear_v1_torch(
+    model = FPModel(
         in_features=training_ds[0][0].shape.numel(),
         out_features=len(training_ds.classes),
         bias=False,
@@ -136,11 +152,11 @@ def fixed_point(
 
     set_initial_seed(seed, make_determenistic=True)
     __setup_dataloader(batch_size=batch_size)
-    _, model = linear_v1_eai(
+    model = FxPModel(
         in_features=training_ds[0][0].shape.numel(),
         out_features=len(training_ds.classes),
-        fixed_point_total_bits=total_fixed_point_bits,
-        fixed_point_fraction_bits=fraction_bits,
+        total_bit_width=total_fixed_point_bits,
+        fraction_bit_width=fraction_bits,
         bias=False,
     )
     __train(
@@ -154,6 +170,7 @@ def fixed_point(
 
 @app.command()
 def delta(
+    delta_type: Annotated[DeltaType, typer.Option()],
     log_dir: Annotated[Path, typer.Option()] = Path(
         f"logs/{datetime.now(tz=timezone.utc).timestamp() * 10000}"
     ),
@@ -173,20 +190,21 @@ def delta(
     fraction_bits: Annotated[int, typer.Option(min=0)] = 4,
     delta_bits: Annotated[int, typer.Option(min=1)] = 4,
     delta_offset: Annotated[int, typer.Option(min=0)] = 2,
-    delta_type: DeltaType = DeltaType.CONSECUTIVE,
 ) -> None:
     setup_logging(log_dir, verbose)
 
     set_initial_seed(seed, make_determenistic=True)
     __setup_dataloader(batch_size=batch_size)
-    _, model = linear_v1_delta(
+    delta_compression_builder = DeltaCompBuilder().saturated_compression(
+        delta_width=delta_bits, offset=delta_offset
+    )
+    delta_type(delta_compression_builder)
+    model = DeltaModel(
         in_features=training_ds[0][0].shape.numel(),
         out_features=len(training_ds.classes),
-        fixed_point_total_bits=total_fixed_point_bits,
-        fixed_point_fraction_bits=fraction_bits,
-        delta_bit_width=delta_bits,
-        delta_offset=delta_offset,
-        delta_type=delta_type,
+        total_bit_width=total_fixed_point_bits,
+        fraction_bit_width=fraction_bits,
+        delta_compression=delta_compression_builder.build(),
         bias=False,
     )
     __train(
