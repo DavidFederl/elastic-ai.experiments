@@ -77,7 +77,15 @@
         done
       '';
       binary = "bash";
-      description = "Run delta aware training for given fraction-bits (100 times; 100 epochs). Input: total-fixed-point-bits, fraction-bits, delta-bits, delta-offset, log-prefix";
+      description = ''
+        Run delta aware training for given fraction-bits (100 times; 100 epochs). 
+        Input:
+          total-fixed-point-bits,
+          fraction-bits,
+          delta-bits,
+          delta-offset,
+          log-prefix
+      '';
     };
     fixed_delta_training = {
       exec = ''

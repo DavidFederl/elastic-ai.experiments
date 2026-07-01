@@ -103,4 +103,4 @@ skip-magic-trailing-comma = false
 line-ending = "auto"
 
 [tool.uv.sources]
-elasticai-creator = { git = "https://github.com/es-ude/elastic-ai.creator.git", branch = "add_deltacompression" }
+elasticai-creator = { git = "https://github.com/es-ude/elastic-ai.creator", branch = "add_delta_plugin" }
