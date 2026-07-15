@@ -18,6 +18,26 @@ class SmarTable(Dataset):
         transform: Callable | None = None,
         target_transform: Callable | None = None,
     ) -> None:
+        """SmarTable dataset with leave-a-person-out.
+
+        It splits the dataset into training and test sets based on subjects.
+        The first 80% of subjects are used for training, and the remaining 20% are used for testing.
+
+        Args:
+            root (str | Path): Root directory of the dataset.
+            train (bool, optional): If True, creates dataset from training set, otherwise from test set.
+                Defaults to True.
+            transform (Callable, optional): A function/transform that takes in a sample and returns a transformed version.
+                Defaults to None.
+            target_transform (Callable, optional): A function/transform that takes in the target and transforms it.
+                Defaults to None.
+
+        Raises:
+            RuntimeError: If the dataset folder is not found.
+
+        Returns:
+            None
+        """
         super().__init__()
 
         self.root = root if isinstance(root, Path) else Path(root)
