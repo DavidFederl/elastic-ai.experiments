@@ -49,6 +49,7 @@ include = [
   "pyproject.toml",
   "main.py",
   "src/**/*.py",
+  "experiments/**/*.py",
   "tests/**/*.py",
 ]
 exclude = [

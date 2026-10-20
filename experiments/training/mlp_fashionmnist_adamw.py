@@ -12,14 +12,14 @@ from torch.nn import Sequential as Sequential_torch
 from torch.nn.modules import CrossEntropyLoss
 from torch.utils.data import DataLoader
 
-from src.nn.dc import DeltaType, Quantizer
-from src.nn.model.evaluation import DeltaModel, FPModel, FxPModel
 from src.nn.data import (
     FashionMNIST,
     fashionmnist_trainingset_flattened,
     fashionmnist_validationset_flattened,
     get_dataloader,
 )
+from src.nn.dc import DeltaType, Quantizer
+from src.nn.model.evaluation import DeltaModel, FPModel, FxPModel
 from src.nn.training import TrainingBuilder, set_initial_seed
 from src.tools.generate_graphs import generate_graphs
 from src.utils import setup_logging
