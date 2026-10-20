@@ -1,0 +1,9 @@
+# Settings of the ResNet8 FP32 training run.
+# $WS and $RUN_DIR are set by run_training.sh and expanded when the file is loaded.
+dataset: $WS/datasets/cifar10/cifar10.h5
+log_dir: $RUN_DIR/logs
+seed: 42
+epochs: 200
+batch_size: 512
+# keep equal to --cpus-per-task in run_training.sh
+num_workers: 4

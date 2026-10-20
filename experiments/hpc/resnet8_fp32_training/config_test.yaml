@@ -1,0 +1,13 @@
+# Short test run: three epochs, to check GPU use, the dataset path and the run time.
+# The first epoch can be slower (CUDA start, file cache), so use the later epochs
+# to estimate the time of a full run.
+# Start it with a short time limit, for example:
+#   sbatch --time=00:45:00 run_training.sh <path to this file>
+# $WS and $RUN_DIR are set by run_training.sh and expanded when the file is loaded.
+dataset: $WS/datasets/cifar10/cifar10.h5
+log_dir: $RUN_DIR/logs
+seed: 42
+epochs: 3
+batch_size: 512
+# keep equal to --cpus-per-task in run_training.sh
+num_workers: 4
