@@ -56,7 +56,7 @@ def __train(model: Sequential, model_log_dir: Path, epochs: int, weight_decay: f
     training = (
         TrainingBuilder()
         .dataset(training_ds.classes, training_dl, validation_dl)
-        .model(model)  # type: ignore
+        .model(model)
         .device("cpu")
         .optimizer(optimizer)
         .loss_fn(loss_fn)

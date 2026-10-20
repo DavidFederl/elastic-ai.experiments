@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Self
 
 from torch import load, no_grad, optim, save
-from torch.nn import CrossEntropyLoss
+from torch.nn import CrossEntropyLoss, Module
 from torch.nn import Sequential as Sequential_torch
 from torch.nn.modules.loss import _Loss
 from torch.utils.data import DataLoader
@@ -17,7 +17,7 @@ from .metrics import Metrics, MetricWriter
 
 logger = logging.getLogger(__name__)
 
-type Sequential = Sequential_torch | Sequential_creator
+type Sequential = Sequential_torch | Sequential_creator | Module
 
 
 class Training:

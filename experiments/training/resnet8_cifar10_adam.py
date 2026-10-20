@@ -62,7 +62,7 @@ def __train(
     training_builder = (
         TrainingBuilder()
         .dataset(training_ds.classes, training_dl, validation_dl)
-        .model(model)  # type: ignore
+        .model(model)
         .device(device.value)
         .optimizer(optimizer)
         .loss_fn(loss_fn)
