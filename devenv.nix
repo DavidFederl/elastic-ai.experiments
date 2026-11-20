@@ -114,9 +114,9 @@
   tasks = {
     "check:conventional-commit" = {
       exec = ''
-        if [ -n "$GITHUB_BASE_REF" ]; then
-          # pull request: only the commits that are not in the base branch
-          ${pkgs.cocogitto}/bin/cog check "origin/$GITHUB_BASE_REF..HEAD"
+        # COMMIT_CHECK_BASE is the commit before the new commits (set in CI)
+        if [ -n "$COMMIT_CHECK_BASE" ] && git cat-file -e "$COMMIT_CHECK_BASE^{commit}" 2>/dev/null; then
+          ${pkgs.cocogitto}/bin/cog check "$COMMIT_CHECK_BASE..HEAD"
         elif [ -n "$CI" ]; then
           ${pkgs.cocogitto}/bin/cog check --from-latest-tag
         else

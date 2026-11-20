@@ -29,5 +29,9 @@ jobs:
       - name: Prepare Devenv environment
         uses: ./.github/actions/prepare-devenv
       - name: Run checks
+        env:
+          # the commit lint only checks the commits after this commit:
+          # the base of the pull request or the commit before the push
+          COMMIT_CHECK_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
         # conventional commits, formatting, type check and unit tests
         run: devenv tasks run check
