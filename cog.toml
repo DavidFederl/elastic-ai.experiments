@@ -1,0 +1,23 @@
+scopes = [
+  "data",
+  "model",
+  "training",
+  "experiments",
+  "hpc",
+  "tools",
+  "utils",
+  "devenv",
+  "deps",
+  "version",
+]
+
+[commit_types]
+feat = { changelog_title = "Features", bump_minor = true }
+fix = { changelog_title = "Bug Fixes", bump_patch = true }
+docs = { changelog_title = "Documentation" }
+style = { changelog_title = "Style" }
+refactor = { changelog_title = "Refactoring" }
+perf = { changelog_title = "Performance" }
+test = { changelog_title = "Tests" }
+chore = { changelog_title = "Chores" }
+ci = { changelog_title = "Continuous Integration" }

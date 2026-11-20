@@ -14,7 +14,7 @@
 
   languages.python = {
     enable = true;
-    version = "3.13";
+    package = pkgs.python313;
     venv.enable = true;
     uv.enable = true;
     uv.sync.enable = true;
@@ -114,8 +114,11 @@
   tasks = {
     "check:conventional-commit" = {
       exec = ''
-        if [ -n "$CI" ]; then
-          ${pkgs.cocogitto}/bin/cog check ..$GITHUB_SOURCE_REF
+        # COMMIT_CHECK_BASE is the commit before the new commits (set in CI)
+        if [ -n "$COMMIT_CHECK_BASE" ] && git cat-file -e "$COMMIT_CHECK_BASE^{commit}" 2>/dev/null; then
+          ${pkgs.cocogitto}/bin/cog check "$COMMIT_CHECK_BASE..HEAD"
+        elif [ -n "$CI" ]; then
+          ${pkgs.cocogitto}/bin/cog check --from-latest-tag
         else
           ${pkgs.cocogitto}/bin/cog check main..
         fi

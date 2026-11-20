@@ -7,12 +7,14 @@ from typing import Annotated
 import torch
 import typer
 from elasticai.creator.arithmetic import FxpArithmetic, FxpParams
-from elasticai.creator.nn.delta_compression import DeltaOperations, DeltaType
 
-from src.nn.data import (
-    fashionmnist_trainingset_flattened,
+from src.nn.dc import (
+    DeltaType,
+    Quantizer,
+    build_delta_compression,
+    compress_state_dict,
+    is_parameter,
 )
-from src.nn.model import linear_v1_eai
 from src.nn.training import set_initial_seed
 from src.utils import setup_logging
 
@@ -23,11 +25,11 @@ app = typer.Typer()
 @app.command()
 def main(
     model_configuration: Annotated[Path, typer.Argument(exists=True, readable=True)],
-    total_fixed_point_bits: Annotated[int, typer.Option(min=2)],
+    total_fixed_point_bits: Annotated[int, typer.Option(min=2, max=32)],
     fraction_fixed_point_bits: Annotated[int, typer.Option(min=1)],
     delta_bits: Annotated[int, typer.Option(min=1)],
-    delta_offset: Annotated[int, typer.Option(min=0)] = 0,
     delta_type: DeltaType = DeltaType.CONSECUTIVE,
+    quantizer: Quantizer = Quantizer.CLAMP,
     log_dir: Annotated[Path, typer.Option()] = Path(
         f"logs/{int(datetime.now(tz=timezone.utc).timestamp() * 10000)}"
     ),
@@ -41,65 +43,45 @@ def main(
 
     fxp_params = FxpParams(total_fixed_point_bits, fraction_fixed_point_bits)
     fxp_arithmetic = FxpArithmetic(fxp_params)
-    delta_operations = DeltaOperations(
-        fxp_arithmetic=fxp_arithmetic,
-        delta_bits=delta_bits,
-        delta_offset=delta_offset,
-        delta_type=delta_type,
-        clamp=True,
-    )
+    delta_compression = build_delta_compression(delta_type, quantizer, delta_bits)
 
     log_dir.joinpath("graphs").mkdir(parents=True, exist_ok=True)
     log_dir.joinpath("states").mkdir(parents=True, exist_ok=True)
 
-    training_ds = fashionmnist_trainingset_flattened()
-
-    # load model from storage
-    _, model = linear_v1_eai(
-        in_features=training_ds[0][0].shape.numel(),
-        out_features=len(training_ds.classes),
-        fixed_point_total_bits=total_fixed_point_bits,
-        fixed_point_fraction_bits=fraction_fixed_point_bits,
-        bias=False,
-    )
+    # load state_dict from storage
     logger.info(f"Try loading state_dict from '{model_configuration}'")
-    model.load_state_dict(torch.load(model_configuration, weights_only=True))
-    original_state_dict = model.state_dict()
+    original_state_dict = torch.load(model_configuration, weights_only=True)
 
     # simulate quantization as INT
     quantized_state_dict = {}
     for layer_id, layer_weights in original_state_dict.items():
-        if "weight" in layer_id or "bias" in layer_id:
+        if is_parameter(layer_id):
             quantized_state_dict[layer_id] = fxp_arithmetic.cut_as_integer(
                 layer_weights
-            )
+            ).to(torch.int32)
         else:
             quantized_state_dict[layer_id] = layer_weights
     logger.info("Model quantized")
     get_weight_distribution(quantized_state_dict)
 
     # simulate compression
-    compressed_state_dict = {}
-    for layer_id, layer_weights in original_state_dict.items():
-        if "weight" in layer_id or "bias" in layer_id:
-            logger.info(f"{layer_id=}")
-            compressed_state_dict[layer_id] = delta_operations.compress(layer_weights)
-        else:
-            compressed_state_dict[layer_id] = layer_weights
+    deltas, references = compress_state_dict(quantized_state_dict, delta_compression)
     logger.info("Model compressed")
-    get_weight_distribution(compressed_state_dict)
+    get_weight_distribution(deltas, references)
 
 
-def get_weight_distribution(state_dict: dict) -> None:
+def get_weight_distribution(state_dict: dict, references: dict | None = None) -> None:
     # Compute statistics
     def get_stats(tensor, name):
         if tensor.numel() == 0:
             logger.error(f"{name}: No values")
             return
+        reference = references[name] if references is not None else tensor.flatten()[0]
+        tensor = tensor.float()
         logger.info(
             f"{name} Statisitcs:"
             f"\n  Shape: {tensor.shape}"
-            f"\n  Reference Value: {tensor.flatten()[0]}"
+            f"\n  Reference Value: {reference}"
             f"\n  Min: {tensor.min().item():.4f}"
             f"\n  Max: {tensor.max().item():.4f}"
             f"\n  Mean: {tensor.mean().item():.4f}"
@@ -110,7 +92,7 @@ def get_weight_distribution(state_dict: dict) -> None:
         )
 
     for key, tensor in state_dict.items():
-        if "weight" in key or "bias" in key:
+        if is_parameter(key):
             get_stats(tensor, key)
 
 

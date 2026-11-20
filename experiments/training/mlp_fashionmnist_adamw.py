@@ -1,12 +1,10 @@
 import logging
 from datetime import datetime, timezone
-from enum import Enum
 from pathlib import Path
 from random import randint
 from typing import Annotated
 
 import typer
-from elasticai.creator.experimental.delta_compression import DeltaCompBuilder
 from elasticai.creator.nn.sequential import Sequential as Sequential_creator
 from torch import optim
 from torch.nn import Module
@@ -14,7 +12,8 @@ from torch.nn import Sequential as Sequential_torch
 from torch.nn.modules import CrossEntropyLoss
 from torch.utils.data import DataLoader
 
-from nn.model.evaluation import DeltaModel, FPModel, FxPModel
+from src.nn.dc import DeltaType, Quantizer
+from src.nn.model.evaluation import DeltaModel, FPModel, FxPModel
 from src.nn.data import (
     FashionMNIST,
     fashionmnist_trainingset_flattened,
@@ -34,20 +33,6 @@ validation_ds: FashionMNIST = fashionmnist_validationset_flattened()
 validation_dl: DataLoader
 
 type Sequential = Sequential_torch | Sequential_creator | Module
-
-
-class DeltaType(Enum):
-    CONSECUTIVE = "consecutive"
-    FIXED_REFERENCE = "fixed_reference"
-
-    def __call__(self, delta_compression_builder: DeltaCompBuilder):
-        match self.value:
-            case self.CONSECUTIVE.value:
-                return delta_compression_builder.consecutive_delta()
-            case self.FIXED_REFERENCE.value:
-                return delta_compression_builder.fixed_reference_delta()
-            case _:
-                raise ValueError("Delta Type not found!")
 
 
 def __setup_dataloader(batch_size: int) -> None:
@@ -189,22 +174,20 @@ def delta(
     total_fixed_point_bits: Annotated[int, typer.Option(min=1)] = 8,
     fraction_bits: Annotated[int, typer.Option(min=0)] = 4,
     delta_bits: Annotated[int, typer.Option(min=1)] = 4,
-    delta_offset: Annotated[int, typer.Option(min=0)] = 2,
+    quantizer: Annotated[Quantizer, typer.Option()] = Quantizer.CLAMP,
 ) -> None:
     setup_logging(log_dir, verbose)
 
     set_initial_seed(seed, make_determenistic=True)
     __setup_dataloader(batch_size=batch_size)
-    delta_compression_builder = DeltaCompBuilder().saturated_compression(
-        delta_width=delta_bits, offset=delta_offset
-    )
-    delta_type(delta_compression_builder)
     model = DeltaModel(
         in_features=training_ds[0][0].shape.numel(),
         out_features=len(training_ds.classes),
         total_bit_width=total_fixed_point_bits,
         fraction_bit_width=fraction_bits,
-        delta_compression=delta_compression_builder.build(),
+        delta_type=delta_type,
+        quantizer=quantizer,
+        delta_bits=delta_bits,
         bias=False,
     )
     __train(

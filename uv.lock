@@ -450,7 +450,7 @@ wheels = [
 [[package]]
 name = "elasticai-creator"
 version = "0.68.0"
-source = { git = "https://github.com/es-ude/elastic-ai.creator?branch=add_delta_plugin#13134518bb5e605f48e695e867b29bc81753bb74" }
+source = { git = "https://github.com/DavidFederl/elastic-ai.creator?branch=federldavidpeter%2Fpush-vmyrqvtoqsxk#9cd371fe5296118daac9629783d132764d848f07" }
 dependencies = [
     { name = "cocotb" },
     { name = "numpy" },
@@ -716,7 +716,7 @@ test = [
 
 [package.metadata]
 requires-dist = [
-    { name = "elasticai-creator", git = "https://github.com/es-ude/elastic-ai.creator?branch=add_delta_plugin" },
+    { name = "elasticai-creator", git = "https://github.com/DavidFederl/elastic-ai.creator?branch=federldavidpeter%2Fpush-vmyrqvtoqsxk" },
     { name = "matplotlib", specifier = ">=3.8.0" },
     { name = "tensorboard", specifier = ">=2.20.0" },
     { name = "torch", specifier = ">=2.9.1" },
