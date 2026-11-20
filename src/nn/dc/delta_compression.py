@@ -63,6 +63,18 @@ def compress_state_dict(
     return deltas, references
 
 
+def resolve_value_range(
+    value_range: tuple[int, int] | None, delta_width: int
+) -> tuple[int, int] | None:
+    """Returns the value range, or None if it cannot be decoded unambiguously.
+
+    A range that spans `2**delta_width` values or more is not usable by `inflate`.
+    """
+    if value_range is None or value_range[1] - value_range[0] >= 2**delta_width:
+        return None
+    return value_range
+
+
 def inflate_state_dict(
     deltas: dict[str, Tensor],
     references: dict[str, Tensor],
@@ -79,15 +91,13 @@ def inflate_state_dict(
     inflated: dict[str, Tensor] = {}
     for layer_id, delta in deltas.items():
         value_range = None if value_ranges is None else value_ranges[layer_id]
-        if value_range is not None and (
-            value_range[1] - value_range[0] >= 2**delta_compression.delta_width
-        ):
+        usable_range = resolve_value_range(value_range, delta_compression.delta_width)
+        if value_range is not None and usable_range is None:
             logger.warning(
                 f"{layer_id}: value range {value_range} spans 2**"
                 f"{delta_compression.delta_width} values or more, inflating without it"
             )
-            value_range = None
         inflated[layer_id] = delta_compression.inflate(
-            references[layer_id], delta, value_range=value_range
+            references[layer_id], delta, value_range=usable_range
         ).reshape(shapes[layer_id])
     return inflated

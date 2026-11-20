@@ -10,7 +10,7 @@ import torch
 import typer
 from elasticai.creator.arithmetic import FxpArithmetic, FxpParams
 
-from src.nn.delta_compression import (
+from src.nn.dc import (
     DeltaType,
     Quantizer,
     build_delta_compression,
