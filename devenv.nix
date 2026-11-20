@@ -114,8 +114,11 @@
   tasks = {
     "check:conventional-commit" = {
       exec = ''
-        if [ -n "$CI" ]; then
-          ${pkgs.cocogitto}/bin/cog check ..$GITHUB_SOURCE_REF
+        if [ -n "$GITHUB_BASE_REF" ]; then
+          # pull request: only the commits that are not in the base branch
+          ${pkgs.cocogitto}/bin/cog check "origin/$GITHUB_BASE_REF..HEAD"
+        elif [ -n "$CI" ]; then
+          ${pkgs.cocogitto}/bin/cog check --from-latest-tag
         else
           ${pkgs.cocogitto}/bin/cog check main..
         fi
