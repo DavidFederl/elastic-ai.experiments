@@ -1,4 +1,4 @@
-from .cifar10 import CIFAR10, cifar10_trainingset, cifar10_validationset
+from .cifar10 import CIFAR10, CIFAR10_H5, cifar10_trainingset, cifar10_validationset
 from .fashionmnist import (
     FashionMNIST,
     fashionmnist_trainingset_flattened,
@@ -13,6 +13,7 @@ from .utils import get_dataloader
 
 __all__ = [
     "CIFAR10",
+    "CIFAR10_H5",
     "cifar10_trainingset",
     "cifar10_validationset",
     "FashionMNIST",
