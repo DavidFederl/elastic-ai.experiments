@@ -9,12 +9,16 @@ import numpy as np
 import torch
 import typer
 from elasticai.creator.arithmetic import FxpArithmetic, FxpParams
-from elasticai.creator.nn.delta_compression import DeltaOperations, DeltaType
 
-from src.nn.data import (
-    fashionmnist_trainingset_flattened,
+from src.nn.delta_compression import (
+    DeltaType,
+    Quantizer,
+    build_delta_compression,
+    compress_state_dict,
+    inflate_state_dict,
+    is_parameter,
 )
-from src.nn.model import linear_v1_eai, save_as_json
+from src.nn.model import save_as_json
 from src.nn.training import set_initial_seed
 from src.utils import setup_logging
 
@@ -25,11 +29,11 @@ app = typer.Typer()
 @app.command()
 def main(
     model_configuration: Annotated[Path, typer.Argument(exists=True, readable=True)],
-    total_fixed_point_bits: Annotated[int, typer.Option(min=2)],
+    total_fixed_point_bits: Annotated[int, typer.Option(min=2, max=32)],
     fraction_fixed_point_bits: Annotated[int, typer.Option(min=1)],
     delta_bits: Annotated[int, typer.Option(min=1)],
-    delta_offset: Annotated[int, typer.Option(min=0)] = 0,
     delta_type: DeltaType = DeltaType.CONSECUTIVE,
+    quantizer: Quantizer = Quantizer.CLAMP,
     log_dir: Annotated[Path, typer.Option()] = Path(
         f"logs/{int(datetime.now(tz=timezone.utc).timestamp() * 10000)}"
     ),
@@ -43,30 +47,14 @@ def main(
 
     fxp_params = FxpParams(total_fixed_point_bits, fraction_fixed_point_bits)
     fxp_arithmetic = FxpArithmetic(fxp_params)
-    delta_operations = DeltaOperations(
-        fxp_arithmetic=fxp_arithmetic,
-        delta_bits=delta_bits,
-        delta_offset=delta_offset,
-        delta_type=delta_type,
-        clamp=True,
-    )
+    delta_compression = build_delta_compression(delta_type, quantizer, delta_bits)
 
     log_dir.joinpath("graphs").mkdir(parents=True, exist_ok=True)
     log_dir.joinpath("states").mkdir(parents=True, exist_ok=True)
 
-    training_ds = fashionmnist_trainingset_flattened()
-
-    # load model from storage
-    _, model = linear_v1_eai(
-        in_features=training_ds[0][0].shape.numel(),
-        out_features=len(training_ds.classes),
-        fixed_point_total_bits=total_fixed_point_bits,
-        fixed_point_fraction_bits=fraction_fixed_point_bits,
-        bias=False,
-    )
+    # load state_dict from storage
     logger.info(f"Try loading state_dict from '{model_configuration}'")
-    model.load_state_dict(torch.load(model_configuration, weights_only=True))
-    original_state_dict = model.state_dict()
+    original_state_dict = torch.load(model_configuration, weights_only=True)
     save_as_json(
         original_state_dict, log_dir.joinpath("states", "original_state_dict.json")
     )
@@ -77,10 +65,10 @@ def main(
     # simulate quantization as INT
     quantized_state_dict = {}
     for layer_id, layer_weights in original_state_dict.items():
-        if "weight" in layer_id or "bias" in layer_id:
+        if is_parameter(layer_id):
             quantized_state_dict[layer_id] = fxp_arithmetic.cut_as_integer(
                 layer_weights
-            )
+            ).to(torch.int32)
         else:
             quantized_state_dict[layer_id] = layer_weights
     logger.info("Model quantized")
@@ -92,28 +80,40 @@ def main(
     )
 
     # simulate compression
-    compressed_state_dict = {}
-    for layer_id, layer_weights in original_state_dict.items():
-        if "weight" in layer_id or "bias" in layer_id:
-            logger.info(f"{layer_id=}")
-            compressed_state_dict[layer_id] = delta_operations.compress(layer_weights)
-        else:
-            compressed_state_dict[layer_id] = layer_weights
+    compressed_state_dict, reference_values = compress_state_dict(
+        quantized_state_dict, delta_compression
+    )
     logger.info("Model compressed")
     save_as_json(
         compressed_state_dict, log_dir.joinpath("states", "compressed_state_dict.json")
     )
+    save_as_json(reference_values, log_dir.joinpath("states", "reference_values.json"))
     get_weight_distribution(
         compressed_state_dict, log_dir.joinpath("graphs", "compressed.png")
     )
 
     # simulate inflation
-    inflated_state_dict = {}
-    for layer_id, layer_weights in compressed_state_dict.items():
-        if "weight" in layer_id or "bias" in layer_id:
-            inflated_state_dict[layer_id] = delta_operations.inflate(layer_weights)
-        else:
-            inflated_state_dict[layer_id] = layer_weights
+    shapes = {
+        layer_id: layer_weights.shape
+        for layer_id, layer_weights in quantized_state_dict.items()
+    }
+    # wrapped deltas can only be decoded with the value range of each layer
+    value_ranges = (
+        {
+            layer_id: (int(layer_values.min()), int(layer_values.max()))
+            for layer_id, layer_values in quantized_state_dict.items()
+            if is_parameter(layer_id)
+        }
+        if quantizer == Quantizer.CUT
+        else None
+    )
+    inflated_state_dict = inflate_state_dict(
+        compressed_state_dict,
+        reference_values,
+        shapes,
+        delta_compression,
+        value_ranges=value_ranges,
+    )
     logger.info("Model inflated")
     save_as_json(
         inflated_state_dict, log_dir.joinpath("states", "inflated_state_dict.json")
@@ -144,6 +144,7 @@ def get_weight_distribution(state_dict: dict, output_file: Path) -> None:
         if tensor.numel() == 0:
             logger.error(f"{name}: No values")
             return
+        tensor = tensor.float()
         logger.info(
             f"{name} Statisitcs:"
             f"\n  Shape: {tensor.shape}"
