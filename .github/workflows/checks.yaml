@@ -1,6 +1,12 @@
 name: "Validate PR"
 on:
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      os:
+        description: "JSON list of the runner operating systems"
+        type: string
+        default: '["ubuntu-latest", "macos-latest"]'
   pull_request:
     types: [opened, synchronize, reopened, edited]
     branches: ["main"]
@@ -13,7 +19,7 @@ jobs:
       # report the result of every operating system
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: ${{ fromJSON(inputs.os || '["ubuntu-latest", "macos-latest"]') }}
     steps:
       - uses: actions/checkout@v6
         with:

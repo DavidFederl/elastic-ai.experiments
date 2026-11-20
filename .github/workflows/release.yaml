@@ -5,7 +5,14 @@ on:
     branches: ["main"]
 
 jobs:
+  checks:
+    name: checks
+    uses: ./.github/workflows/checks.yaml
+    with:
+      os: '["ubuntu-latest"]'
+
   semantic_release:
+    needs: checks
     runs-on: ubuntu-latest
     name: semantic versioning release
     permissions:
