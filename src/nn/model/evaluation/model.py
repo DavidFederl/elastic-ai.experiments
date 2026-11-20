@@ -1,18 +1,16 @@
 import logging
 
+from elasticai.creator.arithmetic import FxpParams
 from elasticai.creator.base_modules.linear import Linear as Linear_Base
-from elasticai.creator.experimental.delta_compression import (
-    DeltaCompression,
-    delta_compressed_bias,
-    delta_compressed_weights,
-)
 from elasticai.creator.nn.fixed_point import BatchNormedLinear as Linear_FxP
 from elasticai.creator.nn.fixed_point import HardTanh as HardTanh_FxP
-from torch import Tensor, no_grad
+from torch import Tensor
 from torch.nn import BatchNorm1d as BatchNorm_FP
 from torch.nn import Hardtanh as HardTanh_FP
 from torch.nn import Linear as Linear_FP
 from torch.nn import Module, Sequential
+
+from src.nn.dc import DeltaType, Quantizer, apply_delta_compression
 
 logger = logging.getLogger(__name__)
 
@@ -128,57 +126,27 @@ class FxPModel(Module):
 
 
 class DeltaModel(FxPModel):
+    """FxPModel that simulates delta compression of the weights during the training."""
+
     def __init__(
         self,
         in_features: int,
         out_features: int,
         total_bit_width: int,
         fraction_bit_width: int,
-        delta_compression: DeltaCompression,
+        delta_type: DeltaType,
+        quantizer: Quantizer,
+        delta_bits: int,
         bias: bool = False,
     ) -> None:
         super().__init__(
             in_features, out_features, total_bit_width, fraction_bit_width, bias
         )
-        self._delta_compression = delta_compression
-
-        @delta_compressed_weights(self._delta_compression)
-        @delta_compressed_bias(self._delta_compression)
-        class DeltaLinear(Linear_Base):
-            pass
-
-        def to_delta_linear(original: Linear_Base) -> Linear_Base:
-            replacement = DeltaLinear(
-                in_features=original.in_features,
-                out_features=original.out_features,
-                operations=original._operations,
-                bias=(original.bias is not None),
-            )
-            with no_grad():
-                replacement._original_weight.copy_(original.weight)
-                if original.bias is not None:
-                    replacement._original_bias.copy_(original.bias)
-            return replacement
-
-        # The delta compressed weights only take effect for the module that is
-        # actually called during the forward pass, so the Linear_Base instances
-        # have to be swapped out inside their owning parent module.
-        replacements = 0
-        for parent in list(self.model.modules()):
-            for name, child in list(parent.named_children()):
-                if not isinstance(child, Linear_Base) or isinstance(child, DeltaLinear):
-                    continue
-                logger.debug(
-                    "Replacing Linear module '%s.%s' with DeltaLinear in model '%s'",
-                    parent.__class__.__name__,
-                    name,
-                    self.__class__.__name__,
-                )
-                setattr(parent, name, to_delta_linear(child))
-                replacements += 1
-
-        if replacements == 0:
-            raise RuntimeError(
-                "No Linear layer was replaced by a delta compressed one - delta"
-                " compression would not be simulated during inference."
-            )
+        apply_delta_compression(
+            self,
+            FxpParams(total_bit_width, fraction_bit_width),
+            delta_type,
+            quantizer,
+            delta_bits,
+            module_types=(Linear_Base,),
+        )
