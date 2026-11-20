@@ -6,9 +6,14 @@ on:
     branches: ["main"]
 
 jobs:
-  check_commit_messages:
-    runs-on: ubuntu-latest
-    name: check conventinal commit compliance
+  checks:
+    name: checks (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # report the result of every operating system
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
     steps:
       - uses: actions/checkout@v6
         with:
@@ -17,33 +22,6 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
       - name: Prepare Devenv environment
         uses: ./.github/actions/prepare-devenv
-      - name: Run Linter
-        run: devenv tasks run check:conventional-commit
-
-  check_code_style:
-    runs-on: ubuntu-latest
-    name: check source code formatting
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-          # pick the pr HEAD instead of the merge commit
-          ref: ${{ github.event.pull_request.head.sha }}
-      - name: Prepare Devenv environment
-        uses: ./.github/actions/prepare-devenv
-      - name: Run Linter
-        run: devenv tasks run check:code-lint
-
-  check_python_unittets:
-    runs-on: ubuntu-latest
-    name: check unit-tests
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-          # pick the pr HEAD instead of the merge commit
-          ref: ${{ github.event.pull_request.head.sha }}
-      - name: Prepare Devenv environment
-        uses: ./.github/actions/prepare-devenv
-      - name: Run Tests
-        run: devenv tasks run check:unit-tests
+      - name: Run checks
+        # conventional commits, formatting, type check and unit tests
+        run: devenv tasks run check
