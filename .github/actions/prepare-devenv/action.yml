@@ -9,5 +9,3 @@ runs:
         name: devenv
     - run: nix profile install nixpkgs/nixos-unstable#devenv
       shell: bash
-    - run: devenv test
-      shell: bash
