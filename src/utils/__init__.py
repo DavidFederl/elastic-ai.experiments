@@ -1,3 +1,4 @@
+from .config import load_config
 from .helper import setup_logging
 
-__all__ = ["setup_logging"]
+__all__ = ["load_config", "setup_logging"]

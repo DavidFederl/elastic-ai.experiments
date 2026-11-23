@@ -10,6 +10,7 @@ dependencies = [
   "elasticai-creator",
   "h5py>=3.16.0",
   "matplotlib>=3.8.0",
+  "pyyaml>=6.0",
   "tensorboard>=2.20.0",
   "torch>=2.9.1",
   "torchao>=0.17.0",
@@ -27,6 +28,7 @@ dev = [
   "hatch-vcs>=0.5.0",
   "ruff>=0.15.7",
   "ty>=0.0.13",
+  "types-pyyaml>=6.0",
 ]
 test = [
   "coverage>=7.10.6",
