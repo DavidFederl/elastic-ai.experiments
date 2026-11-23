@@ -109,7 +109,7 @@ def main(
         .loss_fn(loss_fn=CrossEntropyLoss())
         .optimizer(optimizer=Adam(params=model.parameters()))
         .device(device="cuda" if torch.cuda.is_available() else "cpu")
-        .log_dir(log_dir=Path(config.log_dir).joinpath("tensorboard"))
+        .log_dir(log_dir=Path(config.log_dir))
         .build()
     )
     training.train(epochs=config.epochs, store_only_last_model=False, skip=False)
