@@ -1,12 +1,12 @@
 #!/bin/bash
 #SBATCH --job-name=resnet8_cifar10_fp32_training_DF
-#SBATCH --partition=STD-s-96h
-#SBATCH --time=12:00:00
+#SBATCH --partition=GPU-small
+#SBATCH --time=01:00:00
 #SBATCH --mem=16G
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=4
-#SBATCH --output=resnet8_cifar10_fp32_%j.out
-#SBATCH --error=resnet8_cifar10_fp32_%j.err
+#SBATCH --output=/lustre/scratch/smdafede-resnet8_training/%j/resnet8_cifar10_fp32.out
+#SBATCH --error=/lustre/scratch/smdafede-resnet8_training/%j/resnet8_cifar10_fp32.err
 
 echo "Job started at: $(date)"
 echo "Running on node: $(hostname)"
@@ -24,7 +24,7 @@ CONFIG="${CONFIG:-$PWD/experiments/hpc/resnet8_fp32_training/config.yaml}"
 
 # variables that config.yaml refers to
 export WS="$(ws_find resnet8_training)"
-export RUN_DIR="$WS/$(date +%s)"
+export RUN_DIR="$WS/$SLURM_JOB_ID"
 
 echo "config: $CONFIG"
 echo ""
