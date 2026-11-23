@@ -13,6 +13,7 @@ from tqdm_loggable.auto import tqdm
 
 from src.nn.model import Sequential as Sequential_creator
 
+from .checkpoint import capture_rng_state, restore_rng_state
 from .metrics import Metrics, MetricWriter
 
 logger = logging.getLogger(__name__)
@@ -177,10 +178,43 @@ class Training:
             for file in self.log_dir.joinpath("models", "snapshots").iterdir():
                 if file.is_file():
                     file.unlink()
+        snapshot: dict = {
+            "epoch": epoch,
+            "model": self.model.state_dict(),
+            "optimizer": self.optimizer.state_dict(),
+            "best_epoch": self.best_epoch,
+            "rng": capture_rng_state(),
+        }
+        if self.early_stopping:
+            snapshot["early_stopping"] = {
+                "best_loss": self.best_loss,
+                "counter": self.early_stopping_counter,
+            }
         save(
-            self.model.state_dict(),
+            snapshot,
             self.log_dir.joinpath("models", "snapshots", f"snapshot_{epoch}.pth"),
         )
+
+    def _read_snapshot(self, epoch: int) -> dict:
+        path = self.log_dir.joinpath("models", "snapshots", f"snapshot_{epoch}.pth")
+        snapshot = load(path, map_location="cpu")
+        if "model" not in snapshot:
+            logger.warning(f"{path} holds only the model weights (old format)")
+            return {"model": snapshot}
+        return snapshot
+
+    def _restore_snapshot(self, epoch: int) -> None:
+        snapshot = self._read_snapshot(epoch)
+        self.model.load_state_dict(snapshot["model"])
+        if "optimizer" in snapshot:
+            self.optimizer.load_state_dict(snapshot["optimizer"])
+        if "best_epoch" in snapshot:
+            self.best_epoch = tuple(snapshot["best_epoch"])
+        if self.early_stopping and "early_stopping" in snapshot:
+            self.best_loss = snapshot["early_stopping"]["best_loss"]
+            self.early_stopping_counter = snapshot["early_stopping"]["counter"]
+        if "rng" in snapshot:
+            restore_rng_state(snapshot["rng"])
 
     def _check_early_stopping(self, epoch: int, loss: float) -> bool:
         if not self.early_stopping:
@@ -225,13 +259,7 @@ class Training:
                 )
             elif begin != 0:
                 logger.info(f"Skipping {begin} epochs!")
-                self.model.load_state_dict(
-                    load(
-                        self.log_dir.joinpath(
-                            "models", "snapshots", f"snapshot_{begin - 1}.pth"
-                        )
-                    )
-                )
+                self._restore_snapshot(begin - 1)
         else:
             begin = 0
 
@@ -241,8 +269,6 @@ class Training:
             training_metrics = self._train_epoch(epoch)
             validation_metrics = self._validate_epoch()
             self._log_metrics(epoch, training_metrics, validation_metrics)
-            self._save_snapshot(store_only_last_model, epoch)
-
             metrics[epoch + 1] = {
                 "training": training_metrics.get(),
                 "validation": validation_metrics.get(),
@@ -254,7 +280,12 @@ class Training:
                 )
                 self.best_epoch = (epoch, validation_metrics.get_loss())
 
-            if self._check_early_stopping(epoch, validation_metrics.get_loss()):
+            stop = self._check_early_stopping(epoch, validation_metrics.get_loss())
+
+            # save after the best epoch and the early stopping state are updated
+            self._save_snapshot(store_only_last_model, epoch)
+
+            if stop:
                 logger.info("Early Stopping Triggered!")
                 break
 
@@ -262,11 +293,7 @@ class Training:
 
         if self.load_best:
             logger.info(f"Loading state from epoch {self.best_epoch[0]}")
-            state_dict = load(
-                self.log_dir.joinpath(
-                    "models", "snapshots", f"snapshot_{self.best_epoch[0]}.pth"
-                )
-            )
+            state_dict = self._read_snapshot(self.best_epoch[0])["model"]
             self.model.load_state_dict(state_dict)
 
         if store_only_last_model:

@@ -176,3 +176,78 @@ def test_training_save_model_paths(monkeypatch, tmp_path):
         log_dir / "models" / "snapshots" / "snapshot_3.pth",
         log_dir / "models" / "snapshots" / "snapshot_3.pth",
     ]
+
+
+def _make_training(tmp_path, model, optimizer):
+    dataset = _DummyDataset()
+    return training_module.Training(
+        model=model,
+        classes=dataset.classes,
+        training_dataloader=dataset.training_loader,
+        validation_dataloader=dataset.validation_loader,
+        loss_fn=torch.nn.CrossEntropyLoss(),
+        optimiezer=optimizer,
+        device="cpu",
+        log_dir=tmp_path / "logs",
+        early_stopping=(3, 0.0),
+    )
+
+
+def test_snapshot_restores_optimizer_and_training_state(tmp_path):
+    model = torch.nn.Linear(2, 2)
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.1)
+    model(torch.ones(1, 2)).sum().backward()
+    optimizer.step()
+
+    training = _make_training(tmp_path, model, optimizer)
+    training.best_epoch = (2, 0.5)
+    training.best_loss = 0.5
+    training.early_stopping_counter = 2
+    training._save_snapshot(store_only_last_model=False, epoch=4)
+    saved_weight = model.weight.detach().clone()
+    saved_step = optimizer.state_dict()["state"][0]["step"].clone()
+    expected_random = torch.rand(1)
+
+    # change everything the snapshot holds
+    new_model = torch.nn.Linear(2, 2)
+    new_optimizer = torch.optim.Adam(new_model.parameters(), lr=0.1)
+    restored = _make_training(tmp_path, new_model, new_optimizer)
+    restored._restore_snapshot(4)
+
+    assert torch.equal(new_model.weight, saved_weight)
+    assert torch.equal(new_optimizer.state_dict()["state"][0]["step"], saved_step)
+    assert restored.best_epoch == (2, 0.5)
+    assert restored.best_loss == 0.5
+    assert restored.early_stopping_counter == 2
+    assert torch.equal(torch.rand(1), expected_random)
+
+
+def test_restore_snapshot_reads_old_weights_only_format(tmp_path):
+    model = torch.nn.Linear(2, 2)
+    training = _make_training(tmp_path, model, torch.optim.SGD(model.parameters(), 0.1))
+    torch.save(
+        model.state_dict(), tmp_path / "logs" / "models" / "snapshots" / "snapshot_1.pth"
+    )
+
+    other = torch.nn.Linear(2, 2)
+    restored = _make_training(tmp_path, other, torch.optim.SGD(other.parameters(), 0.1))
+    restored._restore_snapshot(1)
+
+    assert torch.equal(other.weight, model.weight)
+
+
+def test_snapshot_holds_the_state_after_its_epoch(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        training_module, "SummaryWriter", lambda log_dir: _DummyWriter()
+    )
+    model = torch.nn.Linear(5, 2)
+    training = _make_training(
+        tmp_path, model, torch.optim.SGD(model.parameters(), lr=0.1)
+    )
+
+    training.train(epochs=3, skip=False)
+
+    last = training._read_snapshot(2)
+    assert tuple(last["best_epoch"]) == training.best_epoch
+    assert last["early_stopping"]["best_loss"] == training.best_loss
+    assert last["early_stopping"]["counter"] == training.early_stopping_counter
