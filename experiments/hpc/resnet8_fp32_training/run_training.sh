@@ -1,4 +1,7 @@
 #!/bin/bash
+# Usage (in the repo, after `module load git uv`):
+#   uv sync
+#   sbatch run_training.sh [config.yaml] [seed]
 #SBATCH --job-name=resnet8_cifar10_fp32_training_DF
 #SBATCH --partition=GPU-small
 #SBATCH --time=01:00:00
@@ -46,11 +49,9 @@ echo "config: $CONFIG"
 echo "seed: ${SEED:-from config}"
 echo ""
 
-uv sync
-echo "environment setup done"
-echo ""
-
-uv run experiments/hpc/resnet8_fp32_training/training.py "$CONFIG" "${SEED_ARGS[@]}"
+# the environment is not synced here: the array tasks share it, so run
+# `uv sync` once in the repo before sbatch (see the usage in the header)
+uv run --no-sync experiments/hpc/resnet8_fp32_training/training.py "$CONFIG" "${SEED_ARGS[@]}"
 
 echo ""
 echo "Job finished at: $(date)"
