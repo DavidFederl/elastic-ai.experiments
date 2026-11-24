@@ -1,6 +1,6 @@
 import logging
 import os
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from typing import Annotated
 
@@ -40,10 +40,15 @@ def main(
     config_path: Annotated[
         Path, typer.Argument(help="YAML config file", exists=True, dir_okay=False)
     ] = Path(__file__).with_name("config.yaml"),
+    seed: Annotated[
+        int | None, typer.Option(help="Seed, overrides the seed of the config")
+    ] = None,
 ) -> None:
     """Train ResNet8 on CIFAR10 (FP32)."""
     config = load_config(config_path, Config)
     assert isinstance(config, Config)
+    if seed is not None:
+        config = replace(config, seed=seed)
 
     setup_logging(log_dir=Path(config.log_dir), verbose=True)
     write_run_info(Path(config.log_dir), asdict(config))

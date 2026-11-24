@@ -21,3 +21,15 @@ def test_num_workers_equals_cpus_per_task(name):
 
     assert isinstance(config, dict)
     assert config["num_workers"] == _cpus_per_task(JOB_DIR / "run_training.sh")
+
+
+def test_job_array_has_one_unique_seed_per_task():
+    script = (JOB_DIR / "run_training.sh").read_text()
+
+    seeds = re.search(r"^SEEDS=\(([\d ]+)\)$", script, re.M)
+    array = re.search(r"^#SBATCH --array=0-(\d+)$", script, re.M)
+
+    assert seeds is not None and array is not None
+    values = seeds.group(1).split()
+    assert len(values) == int(array.group(1)) + 1
+    assert len(set(values)) == len(values)

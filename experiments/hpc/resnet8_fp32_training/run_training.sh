@@ -5,6 +5,7 @@
 #SBATCH --mem=16G
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=4
+#SBATCH --array=0-9
 #SBATCH --output=/lustre/scratch/smdafede-resnet8_training/%j/resnet8_cifar10_fp32.out
 #SBATCH --error=/lustre/scratch/smdafede-resnet8_training/%j/resnet8_cifar10_fp32.err
 
@@ -26,14 +27,30 @@ CONFIG="${CONFIG:-$PWD/experiments/hpc/resnet8_fp32_training/config.yaml}"
 export WS="$(ws_find resnet8_training)"
 export RUN_DIR="$WS/$SLURM_JOB_ID"
 
+# seed: second argument, else the entry of the array task, else the config
+SEEDS=(42 0 1 2 3 7 123 1337 2024 31415)
+SEED="${2:-}"
+if [ -z "$SEED" ] && [ -n "$SLURM_ARRAY_TASK_ID" ]; then
+    SEED="${SEEDS[$SLURM_ARRAY_TASK_ID]:-}"
+    if [ -z "$SEED" ]; then
+        echo "no seed for array task $SLURM_ARRAY_TASK_ID" >&2
+        exit 1
+    fi
+fi
+SEED_ARGS=()
+if [ -n "$SEED" ]; then
+    SEED_ARGS=(--seed "$SEED")
+fi
+
 echo "config: $CONFIG"
+echo "seed: ${SEED:-from config}"
 echo ""
 
 uv sync
 echo "environment setup done"
 echo ""
 
-uv run experiments/hpc/resnet8_fp32_training/training.py "$CONFIG"
+uv run experiments/hpc/resnet8_fp32_training/training.py "$CONFIG" "${SEED_ARGS[@]}"
 
 echo ""
 echo "Job finished at: $(date)"
