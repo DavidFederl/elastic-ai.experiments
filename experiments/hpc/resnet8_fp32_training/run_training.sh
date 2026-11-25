@@ -4,8 +4,8 @@
 #   sbatch run_training.sh [config.yaml] [seed]
 #SBATCH --job-name=resnet8_cifar10_fp32_training_DF
 #SBATCH --partition=GPU-small
-#SBATCH --time=01:00:00
-#SBATCH --mem=16G
+#SBATCH --time=00:45:00
+#SBATCH --mem=6G
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=4
 #SBATCH --array=0-9
