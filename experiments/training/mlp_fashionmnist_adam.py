@@ -22,7 +22,7 @@ from src.nn.dc import DeltaType, Quantizer
 from src.nn.model.evaluation import DeltaModel, FxPModel
 from src.nn.model.evaluation import FPModel as Model
 from src.nn.training import TrainingBuilder, set_initial_seed
-from src.tools.generate_graphs import generate_graphs
+from src.tools.training_report import plot_run
 from src.utils import setup_logging
 
 logger = logging.getLogger(__name__)
@@ -67,14 +67,7 @@ def __train(model: Sequential, model_log_dir: Path, epochs: int):
 
 
 def __generate_graphs(model_log_dir: Path):
-    generate_graphs(
-        input_dir=model_log_dir.joinpath("metrics", "validation"),
-        output_dir=model_log_dir.joinpath("graphs", "validation"),
-    )
-    generate_graphs(
-        input_dir=model_log_dir.joinpath("metrics", "training"),
-        output_dir=model_log_dir.joinpath("graphs", "training"),
-    )
+    plot_run(model_log_dir)
 
 
 @app.command()

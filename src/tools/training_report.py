@@ -1,26 +1,46 @@
-"""Collect accuracy and loss from per-epoch JSON files into CSV and statistics files.
+"""Report on training runs: CSV tables, statistics and optional plots.
 
-Scans all `metrics/` folders under a given logs directory. Writes:
+Scans all `metrics/` folders under a logs directory. Writes to the output directory:
 
     loss.csv       — epoch, <run>_train, <run>_val, ...  (wide format)
     accuracy.csv   — epoch, <run>_train, <run>_val, ...  (wide format)
     statistics.txt — per-epoch mean, std, 95% CI across runs; best/worst run
+
+With `--plots` it also writes, into `<output-dir>/plots/`:
+
+    loss.png, accuracy.png        — all runs: mean and 95% CI band over the runs
+
+With `--run-plots` it also writes the training and validation curve of each run:
+
+    plots/runs/<run>/loss.png, accuracy.png
+
+This writes two images per run, which is slow for hundreds of runs.
+
+`plot_run` draws the curves of one run. Training scripts call it after training.
 """
 
 import csv
 import json
+import logging
 import math
 import re
 import statistics
 from pathlib import Path
 from typing import Annotated
 
+import matplotlib
+import matplotlib.pyplot as plt
 import typer
+
+matplotlib.use("Agg")  # Use non-interactive backend
 
 app = typer.Typer()
 
+logger = logging.getLogger(__name__)
+
 _REPO_ROOT = Path(__file__).parent.parent.parent
 _Z95 = 1.96  # z-score for 95% confidence interval
+_SPLITS = (("train", "training"), ("val", "validation"))
 
 
 def epoch_number(path: Path) -> int:
@@ -41,8 +61,28 @@ def load_split(metrics_dir: Path, split: str) -> dict[int, dict]:
     return result
 
 
-# run_name -> epoch -> {"train": value, "val": value}
-RunData = dict[str, dict[int, dict[str, float | str]]]
+# epoch -> {"train": value, "val": value}
+EpochData = dict[int, dict[str, float | str]]
+# run_name -> EpochData
+RunData = dict[str, EpochData]
+
+
+def load_run(metrics_dir: Path) -> tuple[EpochData, EpochData]:
+    """Return the loss and accuracy per epoch of one `metrics/` folder."""
+    training = load_split(metrics_dir, "training")
+    validation = load_split(metrics_dir, "validation")
+
+    loss: EpochData = {}
+    accuracy: EpochData = {}
+    for epoch in sorted(set(training) | set(validation)):
+        train = training.get(epoch, {})
+        val = validation.get(epoch, {})
+        loss[epoch] = {"train": train.get("loss", ""), "val": val.get("loss", "")}
+        accuracy[epoch] = {
+            "train": train.get("accuracy", ""),
+            "val": val.get("accuracy", ""),
+        }
+    return loss, accuracy
 
 
 def collect(logs_dir: Path) -> tuple[RunData, RunData]:
@@ -54,22 +94,7 @@ def collect(logs_dir: Path) -> tuple[RunData, RunData]:
             continue
 
         run_name = str(metrics_dir.parent.relative_to(logs_dir))
-        training = load_split(metrics_dir, "training")
-        validation = load_split(metrics_dir, "validation")
-
-        loss_data[run_name] = {}
-        accuracy_data[run_name] = {}
-        for epoch in sorted(set(training) | set(validation)):
-            train = training.get(epoch, {})
-            val = validation.get(epoch, {})
-            loss_data[run_name][epoch] = {
-                "train": train.get("loss", ""),
-                "val": val.get("loss", ""),
-            }
-            accuracy_data[run_name][epoch] = {
-                "train": train.get("accuracy", ""),
-                "val": val.get("accuracy", ""),
-            }
+        loss_data[run_name], accuracy_data[run_name] = load_run(metrics_dir)
 
     return loss_data, accuracy_data
 
@@ -261,21 +286,150 @@ def write_statistics(path: Path, loss_data: RunData, accuracy_data: RunData) -> 
     print(f"Wrote statistics to {path}")
 
 
+def _series(epochs: EpochData, split: str) -> tuple[list[int], list[float]]:
+    """Return the epochs and numeric values of one split, skipping gaps."""
+    points = [
+        (epoch, float(value))
+        for epoch, values in sorted(epochs.items())
+        if isinstance(value := values.get(split, ""), (int, float))
+    ]
+    return [epoch for epoch, _ in points], [value for _, value in points]
+
+
+def _plot_run_data(loss: EpochData, accuracy: EpochData, output_dir: Path) -> None:
+    for metric, epochs in (("loss", loss), ("accuracy", accuracy)):
+        figure, axis = plt.subplots(figsize=(10, 6))
+        for split, label in _SPLITS:
+            x, y = _series(epochs, split)
+            if x:
+                axis.plot(x, y, marker="o", markersize=3, label=label)
+        if not axis.lines:
+            logger.warning(f"No {metric} data found for {output_dir}")
+            plt.close(figure)
+            continue
+        axis.set_title(f"{metric.capitalize()} over Epochs")
+        axis.set_xlabel("Epoch")
+        axis.set_ylabel(metric.capitalize())
+        axis.grid(True)
+        axis.legend()
+        output_dir.mkdir(parents=True, exist_ok=True)
+        figure.savefig(output_dir / f"{metric}.png")
+        plt.close(figure)
+        logger.info(f"Saved plot to {output_dir / f'{metric}.png'}")
+
+
+def plot_run(run_dir: Path, output_dir: Path | None = None) -> None:
+    """Plot training and validation loss and accuracy of one run.
+
+    Reads `<run_dir>/metrics` and writes `loss.png` and `accuracy.png` to
+    `output_dir` (default: `<run_dir>/graphs`).
+    """
+    loss, accuracy = load_run(run_dir / "metrics")
+    _plot_run_data(loss, accuracy, output_dir or run_dir / "graphs")
+
+
+def _plot_all_runs(data: RunData, metric: str, path: Path) -> None:
+    """Plot the mean and 95% CI band over all runs, with each run behind them."""
+    all_epochs = sorted({epoch for epochs in data.values() for epoch in epochs})
+    figure, axis = plt.subplots(figsize=(10, 6))
+    for index, (split, label) in enumerate(_SPLITS):
+        color = f"C{index}"
+        for epochs in data.values():
+            x, y = _series(epochs, split)
+            axis.plot(x, y, color=color, alpha=0.15, linewidth=0.8)
+        per_epoch = {
+            epoch: values
+            for epoch in all_epochs
+            if (values := _values_at_epoch(data, epoch, split))
+        }
+        if not per_epoch:
+            continue
+        x = list(per_epoch)
+        axis.plot(
+            x,
+            [statistics.mean(v) for v in per_epoch.values()],
+            color=color,
+            label=f"{label} (mean of {len(data)} runs)",
+        )
+        if len(data) > 1:
+            bounds = [_ci(v) for v in per_epoch.values()]
+            axis.fill_between(
+                x,
+                [low for low, _ in bounds],
+                [high for _, high in bounds],
+                color=color,
+                alpha=0.25,
+                label=f"{label} 95% CI",
+            )
+    axis.set_title(f"{metric.capitalize()} over Epochs")
+    axis.set_xlabel("Epoch")
+    axis.set_ylabel(metric.capitalize())
+    axis.grid(True)
+    axis.legend()
+    figure.savefig(path)
+    plt.close(figure)
+    print(f"Wrote plot to {path}")
+
+
+def write_plots(
+    logs_dir: Path,
+    output_dir: Path,
+    loss_data: RunData,
+    accuracy_data: RunData,
+    run_plots: bool = False,
+) -> None:
+    plots_dir = output_dir / "plots"
+    plots_dir.mkdir(parents=True, exist_ok=True)
+    _plot_all_runs(loss_data, "loss", plots_dir / "loss.png")
+    _plot_all_runs(accuracy_data, "accuracy", plots_dir / "accuracy.png")
+    if not run_plots:
+        return
+    for run in loss_data:
+        name = logs_dir.name if run == "." else run
+        _plot_run_data(loss_data[run], accuracy_data[run], plots_dir / "runs" / name)
+
+
+def write_report(
+    logs_dir: Path,
+    output_dir: Path,
+    plots: bool = False,
+    run_plots: bool = False,
+) -> None:
+    """Write the CSV tables and statistics, and optionally plots, of all runs."""
+    loss_data, accuracy_data = collect(logs_dir)
+    if not loss_data:
+        raise typer.BadParameter(f"No metrics/ folders found under {logs_dir}.")
+    output_dir.mkdir(parents=True, exist_ok=True)
+    write_wide_csv(output_dir / "loss.csv", loss_data)
+    write_wide_csv(output_dir / "accuracy.csv", accuracy_data)
+    write_statistics(output_dir / "statistics.txt", loss_data, accuracy_data)
+    if plots or run_plots:
+        write_plots(logs_dir, output_dir, loss_data, accuracy_data, run_plots)
+
+
 @app.command()
 def main(
     logs_dir: Annotated[
         Path,
-        typer.Argument(help="Directory to scan for metrics/ folders."),
+        typer.Argument(
+            help="Directory to scan for metrics/ folders.",
+            exists=True,
+            file_okay=False,
+        ),
     ] = _REPO_ROOT / "logs",
     output_dir: Annotated[
-        Path,
-        typer.Argument(help="Directory to write output files."),
-    ] = Path(__file__).parent,
+        Path | None,
+        typer.Argument(help="Directory for the report. Default: LOGS_DIR/report."),
+    ] = None,
+    plots: Annotated[
+        bool, typer.Option(help="Also plot the mean and 95% CI over all runs.")
+    ] = False,
+    run_plots: Annotated[
+        bool, typer.Option(help="Also plot each run (two images per run).")
+    ] = False,
 ) -> None:
-    loss_data, accuracy_data = collect(logs_dir)
-    write_wide_csv(output_dir / "loss.csv", loss_data)
-    write_wide_csv(output_dir / "accuracy.csv", accuracy_data)
-    write_statistics(output_dir / "statistics.txt", loss_data, accuracy_data)
+    """Report on the training runs below a logs directory."""
+    write_report(logs_dir, output_dir or logs_dir / "report", plots, run_plots)
 
 
 if __name__ == "__main__":
